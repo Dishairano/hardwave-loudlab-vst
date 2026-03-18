@@ -1,4 +1,4 @@
-//! Hardwave Master — AI-assisted mastering VST3/CLAP plugin.
+//! Hardwave LoudLab — AI-assisted mastering VST3/CLAP plugin.
 //!
 //! Signal chain:
 //!   Input Gain → EQ (4-band parametric) → Multiband Compressor (4 bands)
@@ -29,7 +29,7 @@ use dsp::{
 use params::{Genre, HardwaveMasterParams};
 use profiles::GenreProfile;
 
-struct HardwaveMaster {
+struct HardwaveLoudLab {
     params: Arc<HardwaveMasterParams>,
 
     // DSP modules — EQ is applied independently per channel.
@@ -54,7 +54,7 @@ struct HardwaveMaster {
     sample_rate: f32,
 }
 
-impl Default for HardwaveMaster {
+impl Default for HardwaveLoudLab {
     fn default() -> Self {
         let sr = 44100.0;
         Self {
@@ -75,8 +75,8 @@ impl Default for HardwaveMaster {
     }
 }
 
-impl Plugin for HardwaveMaster {
-    const NAME: &'static str = "Hardwave Master";
+impl Plugin for HardwaveLoudLab {
+    const NAME: &'static str = "Hardwave LoudLab";
     const VENDOR: &'static str = "Hardwave Studios";
     const URL: &'static str = "https://hardwavestudios.com";
     const EMAIL: &'static str = "hello@hardwavestudios.com";
@@ -261,7 +261,7 @@ impl Plugin for HardwaveMaster {
     }
 }
 
-impl HardwaveMaster {
+impl HardwaveLoudLab {
     /// Apply manual (non-auto) parameter values to DSP modules.
     fn apply_manual_params(&mut self) {
         let p = &self.params;
@@ -353,8 +353,8 @@ impl HardwaveMaster {
     }
 }
 
-impl ClapPlugin for HardwaveMaster {
-    const CLAP_ID: &'static str = "com.hardwavestudios.master";
+impl ClapPlugin for HardwaveLoudLab {
+    const CLAP_ID: &'static str = "com.hardwavestudios.loudlab";
     const CLAP_DESCRIPTION: Option<&'static str> =
         Some("AI-assisted mastering plugin with genre-aware auto-tuning");
     const CLAP_MANUAL_URL: Option<&'static str> = None;
@@ -366,8 +366,8 @@ impl ClapPlugin for HardwaveMaster {
     ];
 }
 
-impl Vst3Plugin for HardwaveMaster {
-    const VST3_CLASS_ID: [u8; 16] = *b"HWMaster__v0001\0";
+impl Vst3Plugin for HardwaveLoudLab {
+    const VST3_CLASS_ID: [u8; 16] = *b"HWLoudLab_v0001\0";
     const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[
         Vst3SubCategory::Fx,
         Vst3SubCategory::Mastering,
@@ -375,8 +375,8 @@ impl Vst3Plugin for HardwaveMaster {
     ];
 }
 
-nih_export_clap!(HardwaveMaster);
-nih_export_vst3!(HardwaveMaster);
+nih_export_clap!(HardwaveLoudLab);
+nih_export_vst3!(HardwaveLoudLab);
 
 #[inline(always)]
 fn db_to_linear(db: f32) -> f32 {

@@ -1,4 +1,4 @@
-//! WebView-based editor for Hardwave Master.
+//! WebView-based editor for Hardwave LoudLab.
 //!
 //! Uses the same hwpacket bridge pattern as KickForge:
 //! - Linux/macOS: Rust pushes state via `evaluate_script()`.
@@ -19,7 +19,7 @@ use crate::auth;
 use crate::params::{Genre, HardwaveMasterParams};
 use crate::protocol::MasterPacket;
 
-const MASTER_URL: &str = "https://master.hardwavestudios.com";
+const LOUDLAB_URL: &str = "https://loudlab.hardwavestudios.com";
 const EDITOR_WIDTH: u32 = 1100;
 const EDITOR_HEIGHT: u32 = 700;
 
@@ -312,8 +312,8 @@ impl Editor for MasterEditor {
 
         let version = env!("CARGO_PKG_VERSION");
         let url = match &self.auth_token {
-            Some(t) => format!("{}?token={}&v={}", MASTER_URL, t, version),
-            None => format!("{}?v={}", MASTER_URL, version),
+            Some(t) => format!("{}?token={}&v={}", LOUDLAB_URL, t, version),
+            None => format!("{}?v={}", LOUDLAB_URL, version),
         };
 
         let param_map = Arc::new(build_param_map(&self.params));
@@ -365,7 +365,7 @@ fn webview2_data_dir() -> std::path::PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("hardwave")
-        .join("master-webview2")
+        .join("loudlab-webview2")
 }
 
 #[cfg(target_os = "windows")]
@@ -513,7 +513,7 @@ fn spawn_unix(
         {
             Ok(wv) => wv,
             Err(e) => {
-                eprintln!("[HardwaveMaster] failed to create WebView: {}", e);
+                eprintln!("[HardwaveLoudLab] failed to create WebView: {}", e);
                 return;
             }
         };

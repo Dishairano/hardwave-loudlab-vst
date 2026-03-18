@@ -1,4 +1,4 @@
-//! DAW-exposed parameters for Hardwave Master.
+//! DAW-exposed parameters for Hardwave LoudLab.
 
 use nih_plug::prelude::*;
 

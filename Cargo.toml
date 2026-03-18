@@ -2,11 +2,11 @@
 members = ["xtask"]
 
 [package]
-name = "hardwave-master"
+name = "hardwave-loudlab"
 version = "0.1.0"
 edition = "2021"
 license = "Proprietary"
-description = "Hardwave Master — AI-assisted mastering VST3/CLAP plugin by Hardwave Studios"
+description = "Hardwave LoudLab — AI-assisted mastering VST3/CLAP plugin by Hardwave Studios"
 
 [lib]
 crate-type = ["cdylib"]

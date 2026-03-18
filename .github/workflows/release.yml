@@ -29,18 +29,18 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
       - name: Build
-        run: cargo xtask bundle hardwave-master --release
+        run: cargo xtask bundle hardwave-loudlab --release
 
       - name: Package
         run: |
           cd target/bundled
-          zip -r hardwave-master-linux-x64.zip hardwave-master.vst3 hardwave-master.clap
+          zip -r hardwave-loudlab-linux-x64.zip hardwave-loudlab.vst3 hardwave-loudlab.clap
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: hardwave-master-linux-x64
-          path: target/bundled/hardwave-master-linux-x64.zip
+          name: hardwave-loudlab-linux-x64
+          path: target/bundled/hardwave-loudlab-linux-x64.zip
 
   build-windows:
     runs-on: windows-latest
@@ -54,19 +54,19 @@ jobs:
           targets: x86_64-pc-windows-msvc
 
       - name: Build
-        run: cargo xtask bundle hardwave-master --release
+        run: cargo xtask bundle hardwave-loudlab --release
 
       - name: Package
         shell: bash
         run: |
           cd target/bundled
-          7z a -tzip hardwave-master-windows-x64.zip hardwave-master.vst3 hardwave-master.clap
+          7z a -tzip hardwave-loudlab-windows-x64.zip hardwave-loudlab.vst3 hardwave-loudlab.clap
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: hardwave-master-windows-x64
-          path: target/bundled/hardwave-master-windows-x64.zip
+          name: hardwave-loudlab-windows-x64
+          path: target/bundled/hardwave-loudlab-windows-x64.zip
 
   build-macos-x64:
     runs-on: macos-latest
@@ -80,18 +80,18 @@ jobs:
           targets: x86_64-apple-darwin
 
       - name: Build
-        run: cargo xtask bundle hardwave-master --release --target x86_64-apple-darwin
+        run: cargo xtask bundle hardwave-loudlab --release --target x86_64-apple-darwin
 
       - name: Package
         run: |
           cd target/bundled
-          zip -r hardwave-master-macos-x64.zip hardwave-master.vst3 hardwave-master.clap
+          zip -r hardwave-loudlab-macos-x64.zip hardwave-loudlab.vst3 hardwave-loudlab.clap
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: hardwave-master-macos-x64
-          path: target/bundled/hardwave-master-macos-x64.zip
+          name: hardwave-loudlab-macos-x64
+          path: target/bundled/hardwave-loudlab-macos-x64.zip
 
   build-macos-arm64:
     runs-on: macos-latest
@@ -105,18 +105,18 @@ jobs:
           targets: aarch64-apple-darwin
 
       - name: Build
-        run: cargo xtask bundle hardwave-master --release --target aarch64-apple-darwin
+        run: cargo xtask bundle hardwave-loudlab --release --target aarch64-apple-darwin
 
       - name: Package
         run: |
           cd target/bundled
-          zip -r hardwave-master-macos-arm64.zip hardwave-master.vst3 hardwave-master.clap
+          zip -r hardwave-loudlab-macos-arm64.zip hardwave-loudlab.vst3 hardwave-loudlab.clap
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: hardwave-master-macos-arm64
-          path: target/bundled/hardwave-master-macos-arm64.zip
+          name: hardwave-loudlab-macos-arm64
+          path: target/bundled/hardwave-loudlab-macos-arm64.zip
 
   release:
     needs: [build-linux, build-windows, build-macos-x64, build-macos-arm64]
@@ -147,32 +147,32 @@ jobs:
 
       - name: Create universal macOS zip
         run: |
-          mkdir -p universal-macos/hardwave-master.vst3/Contents
-          cd artifacts/hardwave-master-macos-arm64
-          unzip hardwave-master-macos-arm64.zip
+          mkdir -p universal-macos/hardwave-loudlab.vst3/Contents
+          cd artifacts/hardwave-loudlab-macos-arm64
+          unzip hardwave-loudlab-macos-arm64.zip
           cd ../..
-          cd artifacts/hardwave-master-macos-x64
-          unzip hardwave-master-macos-x64.zip
+          cd artifacts/hardwave-loudlab-macos-x64
+          unzip hardwave-loudlab-macos-x64.zip
           cd ../..
-          cp -r artifacts/hardwave-master-macos-arm64/hardwave-master.vst3 universal-macos/
-          cp -r artifacts/hardwave-master-macos-arm64/hardwave-master.clap universal-macos/
+          cp -r artifacts/hardwave-loudlab-macos-arm64/hardwave-loudlab.vst3 universal-macos/
+          cp -r artifacts/hardwave-loudlab-macos-arm64/hardwave-loudlab.clap universal-macos/
           cd universal-macos
-          zip -r hardwave-master-macos-universal.zip hardwave-master.vst3 hardwave-master.clap
+          zip -r hardwave-loudlab-macos-universal.zip hardwave-loudlab.vst3 hardwave-loudlab.clap
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          name: Hardwave Master ${{ steps.version.outputs.version }}
+          name: Hardwave LoudLab ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
-            artifacts/hardwave-master-linux-x64/*.zip
-            artifacts/hardwave-master-windows-x64/*.zip
-            universal-macos/hardwave-master-macos-universal.zip
+            artifacts/hardwave-loudlab-linux-x64/*.zip
+            artifacts/hardwave-loudlab-windows-x64/*.zip
+            universal-macos/hardwave-loudlab-macos-universal.zip
           body: |
-            ## Hardwave Master ${{ steps.version.outputs.version }}
+            ## Hardwave LoudLab ${{ steps.version.outputs.version }}
 
             AI-assisted mastering VST3/CLAP plugin — powered by Hardwave Studios.
 
@@ -180,24 +180,24 @@ jobs:
 
             | Platform | File |
             |----------|------|
-            | Windows x64 | `hardwave-master-windows-x64.zip` |
-            | Linux x64 | `hardwave-master-linux-x64.zip` |
-            | macOS Universal (Intel + Apple Silicon) | `hardwave-master-macos-universal.zip` |
+            | Windows x64 | `hardwave-loudlab-windows-x64.zip` |
+            | Linux x64 | `hardwave-loudlab-linux-x64.zip` |
+            | macOS Universal (Intel + Apple Silicon) | `hardwave-loudlab-macos-universal.zip` |
 
             ### Installation
 
             **Windows:**
             1. Extract the zip
-            2. Copy `hardwave-master.vst3` folder to `C:\Program Files\Common Files\VST3\`
-            3. Copy `hardwave-master.clap` to `C:\Program Files\Common Files\CLAP\`
+            2. Copy `hardwave-loudlab.vst3` folder to `C:\Program Files\Common Files\VST3\`
+            3. Copy `hardwave-loudlab.clap` to `C:\Program Files\Common Files\CLAP\`
 
             **macOS:**
-            1. Extract: `unzip hardwave-master-macos-universal.zip`
-            2. Copy `hardwave-master.vst3` to `~/Library/Audio/Plug-Ins/VST3/`
-            3. Copy `hardwave-master.clap` to `~/Library/Audio/Plug-Ins/CLAP/`
+            1. Extract: `unzip hardwave-loudlab-macos-universal.zip`
+            2. Copy `hardwave-loudlab.vst3` to `~/Library/Audio/Plug-Ins/VST3/`
+            3. Copy `hardwave-loudlab.clap` to `~/Library/Audio/Plug-Ins/CLAP/`
 
             **Linux:**
-            1. Extract: `unzip hardwave-master-linux-x64.zip`
+            1. Extract: `unzip hardwave-loudlab-linux-x64.zip`
             2. Copy to `~/.vst3/` and `~/.clap/`
 
       - name: Update product database
@@ -215,10 +215,10 @@ jobs:
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@46.225.219.184"
 
           $SSH "docker exec hardwave-database mysql -u fl_organizer_user -p'FlOrganizer2024Secure!' fl_organizer_db -e \"
-            UPDATE products SET current_version = '${VERSION_NUM}' WHERE slug = 'master';
+            UPDATE products SET current_version = '${VERSION_NUM}' WHERE slug = 'loudlab';
             INSERT INTO plugin_versions (slug, version) VALUES ('master', '${VERSION}')
               ON DUPLICATE KEY UPDATE version = '${VERSION}';
           \""
 
-          echo "Database updated: master -> ${VERSION_NUM}"
+          echo "Database updated: loudlab -> ${VERSION_NUM}"
           rm -f ~/.ssh/deploy_key

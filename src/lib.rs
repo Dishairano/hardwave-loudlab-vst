@@ -7,7 +7,9 @@
 //! When Auto mode is enabled, the AI engine analyses the spectrum and adjusts
 //! EQ, compressor, stereo, and limiter settings toward the selected genre target.
 
+use crossbeam_channel::{Sender, Receiver};
 use nih_plug::prelude::*;
+use parking_lot::Mutex;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
@@ -28,6 +30,7 @@ use dsp::{
 };
 use params::{Genre, HardwaveMasterParams};
 use profiles::GenreProfile;
+use protocol::MasterPacket;
 
 struct HardwaveLoudLab {
     params: Arc<HardwaveMasterParams>,
@@ -47,6 +50,11 @@ struct HardwaveLoudLab {
     // Auto engine.
     auto_engine: AutoEngine,
 
+    // Editor communication.
+    editor_packet_tx: Sender<MasterPacket>,
+    editor_packet_rx: Arc<Mutex<Receiver<MasterPacket>>>,
+    update_counter: u32,
+
     // State for throttled auto-compute (every N samples).
     samples_since_auto: usize,
     current_profile: GenreProfile,
@@ -57,6 +65,7 @@ struct HardwaveLoudLab {
 impl Default for HardwaveLoudLab {
     fn default() -> Self {
         let sr = 44100.0;
+        let (pkt_tx, pkt_rx) = crossbeam_channel::bounded(4);
         Self {
             params: Arc::new(HardwaveMasterParams::default()),
             eq_l: ParametricEq::new(sr),
@@ -68,6 +77,9 @@ impl Default for HardwaveLoudLab {
             input_meter: LufsMeter::new(sr),
             output_meter: LufsMeter::new(sr),
             auto_engine: AutoEngine::new(),
+            editor_packet_tx: pkt_tx,
+            editor_packet_rx: Arc::new(Mutex::new(pkt_rx)),
+            update_counter: 0,
             samples_since_auto: 0,
             current_profile: GenreProfile::for_genre(Genre::Hardstyle),
             sample_rate: sr,
@@ -93,6 +105,15 @@ impl Plugin for HardwaveLoudLab {
 
     fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
+    }
+
+    fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        let token = auth::load_token();
+        Some(Box::new(editor::MasterEditor::new(
+            Arc::clone(&self.params),
+            Arc::clone(&self.editor_packet_rx),
+            token,
+        )))
     }
 
     fn initialize(
@@ -135,25 +156,28 @@ impl Plugin for HardwaveLoudLab {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        // Read ALL param values into locals so we can drop the borrow on self.params.
         let p = &self.params;
-
-        // Read param values once per buffer.
         let intensity = p.intensity.value();
         let input_gain_db = p.input_gain.value();
         let output_gain_db = p.output_gain.value();
         let mix = p.mix.value();
         let auto_mode = p.auto_mode.value();
-
         let eq_enabled = p.eq_enabled.value();
         let comp_enabled = p.comp_enabled.value();
         let stereo_enabled = p.stereo_enabled.value();
         let limiter_enabled = p.limiter_enabled.value();
+        let genre = p.genre.value();
+
+        // Snapshot all param values for the editor packet.
+        let pkt_snapshot = editor::snapshot_params(p);
+        // Release the immutable borrow on self.params.
+        let _ = p;
 
         let input_gain = db_to_linear(input_gain_db);
         let output_gain = db_to_linear(output_gain_db);
 
         // Update genre profile if needed.
-        let genre = p.genre.value();
         self.current_profile = GenreProfile::for_genre(genre);
 
         // If NOT auto mode, read manual EQ/comp/stereo/limiter params.
@@ -255,6 +279,20 @@ impl Plugin for HardwaveLoudLab {
             // Write output.
             *frame.get_mut(0).unwrap() = l;
             *frame.get_mut(1).unwrap() = r;
+        }
+
+        // Send state packet to editor (~60 fps at 44.1k / 512 block size).
+        self.update_counter += 1;
+        if self.update_counter >= 4 {
+            self.update_counter = 0;
+
+            let mut packet = pkt_snapshot;
+            packet.input_lufs = self.input_meter.momentary_lufs();
+            packet.output_lufs = self.output_meter.momentary_lufs();
+            packet.true_peak_db = self.output_meter.true_peak();
+            packet.spectrum = self.analyzer.get_spectrum();
+
+            let _ = self.editor_packet_tx.try_send(packet);
         }
 
         ProcessStatus::Normal

@@ -216,7 +216,7 @@ jobs:
 
           $SSH "docker exec hardwave-database mysql -u fl_organizer_user -p'FlOrganizer2024Secure!' fl_organizer_db -e \"
             UPDATE products SET current_version = '${VERSION_NUM}' WHERE slug = 'loudlab';
-            INSERT INTO plugin_versions (slug, version) VALUES ('master', '${VERSION}')
+            INSERT INTO plugin_versions (slug, version) VALUES ('loudlab', '${VERSION}')
               ON DUPLICATE KEY UPDATE version = '${VERSION}';
           \""
 

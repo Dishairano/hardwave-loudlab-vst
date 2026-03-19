@@ -19,7 +19,7 @@ use crate::auth;
 use crate::params::{Genre, HardwaveMasterParams};
 use crate::protocol::MasterPacket;
 
-const LOUDLAB_URL: &str = "https://loudlab.hardwavestudios.com";
+const LOUDLAB_URL: &str = "https://loudlab.hardwavestudios.com/vst/loudlab";
 const EDITOR_WIDTH: u32 = 1100;
 const EDITOR_HEIGHT: u32 = 700;
 

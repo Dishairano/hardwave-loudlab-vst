@@ -70,6 +70,84 @@ impl BiquadCoeffs {
             a2: 0.0,
         }
     }
+
+    fn low_shelf(freq: f32, gain_db: f32, q: f32, sample_rate: f32) -> Self {
+        let a = 10.0_f32.powf(gain_db / 40.0);
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * q);
+        let b0 = a * ((a + 1.0) - (a - 1.0) * cos_w0 + 2.0 * a.sqrt() * alpha);
+        let b1 = 2.0 * a * ((a - 1.0) - (a + 1.0) * cos_w0);
+        let b2 = a * ((a + 1.0) - (a - 1.0) * cos_w0 - 2.0 * a.sqrt() * alpha);
+        let a0 = (a + 1.0) + (a - 1.0) * cos_w0 + 2.0 * a.sqrt() * alpha;
+        let a1 = -2.0 * ((a - 1.0) + (a + 1.0) * cos_w0);
+        let a2 = (a + 1.0) + (a - 1.0) * cos_w0 - 2.0 * a.sqrt() * alpha;
+        Self { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: a1 / a0, a2: a2 / a0 }
+    }
+
+    fn high_shelf(freq: f32, gain_db: f32, q: f32, sample_rate: f32) -> Self {
+        let a = 10.0_f32.powf(gain_db / 40.0);
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * q);
+        let b0 = a * ((a + 1.0) + (a - 1.0) * cos_w0 + 2.0 * a.sqrt() * alpha);
+        let b1 = -2.0 * a * ((a - 1.0) + (a + 1.0) * cos_w0);
+        let b2 = a * ((a + 1.0) + (a - 1.0) * cos_w0 - 2.0 * a.sqrt() * alpha);
+        let a0 = (a + 1.0) - (a - 1.0) * cos_w0 + 2.0 * a.sqrt() * alpha;
+        let a1 = 2.0 * ((a - 1.0) - (a + 1.0) * cos_w0);
+        let a2 = (a + 1.0) - (a - 1.0) * cos_w0 - 2.0 * a.sqrt() * alpha;
+        Self { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: a1 / a0, a2: a2 / a0 }
+    }
+
+    fn low_pass(freq: f32, q: f32, sample_rate: f32) -> Self {
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * q);
+        let b0 = (1.0 - cos_w0) / 2.0;
+        let b1 = 1.0 - cos_w0;
+        let b2 = (1.0 - cos_w0) / 2.0;
+        let a0 = 1.0 + alpha;
+        let a1 = -2.0 * cos_w0;
+        let a2 = 1.0 - alpha;
+        Self { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: a1 / a0, a2: a2 / a0 }
+    }
+
+    fn high_pass(freq: f32, q: f32, sample_rate: f32) -> Self {
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * q);
+        let b0 = (1.0 + cos_w0) / 2.0;
+        let b1 = -(1.0 + cos_w0);
+        let b2 = (1.0 + cos_w0) / 2.0;
+        let a0 = 1.0 + alpha;
+        let a1 = -2.0 * cos_w0;
+        let a2 = 1.0 - alpha;
+        Self { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: a1 / a0, a2: a2 / a0 }
+    }
+}
+
+/// Filter type for each EQ band.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterType {
+    Peak = 0,
+    LowShelf = 1,
+    HighShelf = 2,
+    LowPass = 3,
+    HighPass = 4,
+}
+
+impl Default for FilterType {
+    fn default() -> Self { FilterType::Peak }
+}
+
+impl From<i32> for FilterType {
+    fn from(v: i32) -> Self {
+        match v { 1 => FilterType::LowShelf, 2 => FilterType::HighShelf, 3 => FilterType::LowPass, 4 => FilterType::HighPass, _ => FilterType::Peak }
+    }
 }
 
 /// Parameters for a single EQ band.
@@ -79,6 +157,7 @@ pub struct EqBandParams {
     pub gain_db: f32,
     pub q: f32,
     pub enabled: bool,
+    pub filter_type: FilterType,
 }
 
 impl Default for EqBandParams {
@@ -88,6 +167,7 @@ impl Default for EqBandParams {
             gain_db: 0.0,
             q: 0.707,
             enabled: true,
+            filter_type: FilterType::Peak,
         }
     }
 }
@@ -103,10 +183,10 @@ pub struct ParametricEq {
 impl ParametricEq {
     pub fn new(sample_rate: f32) -> Self {
         let default_bands = [
-            EqBandParams { freq: 100.0, gain_db: 0.0, q: 0.707, enabled: true },
-            EqBandParams { freq: 500.0, gain_db: 0.0, q: 0.707, enabled: true },
-            EqBandParams { freq: 2000.0, gain_db: 0.0, q: 0.707, enabled: true },
-            EqBandParams { freq: 8000.0, gain_db: 0.0, q: 0.707, enabled: true },
+            EqBandParams { freq: 100.0, gain_db: 0.0, q: 0.707, enabled: true, filter_type: FilterType::Peak },
+            EqBandParams { freq: 500.0, gain_db: 0.0, q: 0.707, enabled: true, filter_type: FilterType::Peak },
+            EqBandParams { freq: 2000.0, gain_db: 0.0, q: 0.707, enabled: true, filter_type: FilterType::Peak },
+            EqBandParams { freq: 8000.0, gain_db: 0.0, q: 0.707, enabled: true, filter_type: FilterType::Peak },
         ];
         let mut eq = Self {
             sample_rate,
@@ -144,11 +224,23 @@ impl ParametricEq {
 
     fn recalc_band(&mut self, i: usize) {
         let b = &self.bands[i];
-        if b.enabled && b.gain_db.abs() > 0.001 {
-            self.coeffs[i] = BiquadCoeffs::peaking(b.freq, b.gain_db, b.q, self.sample_rate);
-        } else {
+        if !b.enabled {
             self.coeffs[i] = BiquadCoeffs::unity();
+            return;
         }
+        self.coeffs[i] = match b.filter_type {
+            FilterType::Peak => {
+                if b.gain_db.abs() > 0.001 {
+                    BiquadCoeffs::peaking(b.freq, b.gain_db, b.q, self.sample_rate)
+                } else {
+                    BiquadCoeffs::unity()
+                }
+            }
+            FilterType::LowShelf => BiquadCoeffs::low_shelf(b.freq, b.gain_db, b.q, self.sample_rate),
+            FilterType::HighShelf => BiquadCoeffs::high_shelf(b.freq, b.gain_db, b.q, self.sample_rate),
+            FilterType::LowPass => BiquadCoeffs::low_pass(b.freq, b.q, self.sample_rate),
+            FilterType::HighPass => BiquadCoeffs::high_pass(b.freq, b.q, self.sample_rate),
+        };
     }
 
     fn recalc_all(&mut self) {

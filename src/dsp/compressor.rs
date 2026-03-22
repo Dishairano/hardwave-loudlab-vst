@@ -188,6 +188,7 @@ struct BandCompressor {
     attack_coeff: f32,
     release_coeff: f32,
     sample_rate: f32,
+    last_gr_db: f32,
 }
 
 impl BandCompressor {
@@ -198,6 +199,7 @@ impl BandCompressor {
             attack_coeff: 0.0,
             release_coeff: 0.0,
             sample_rate,
+            last_gr_db: 0.0,
         };
         bc.recalc_coeffs();
         bc
@@ -251,6 +253,7 @@ impl BandCompressor {
             0.0
         };
 
+        self.last_gr_db = gain_reduction_db;
         let gain = db_to_linear(-gain_reduction_db + self.params.makeup_db);
 
         (l * gain, r * gain)
@@ -342,6 +345,11 @@ impl MultibandCompressor {
     /// Get current parameters for a band.
     pub fn get_band_params(&self, band: usize) -> BandCompParams {
         self.comp[band].params
+    }
+
+    /// Get per-band gain reduction in dB (index 0=Sub 1=Lo-M 2=Hi-M 3=High).
+    pub fn band_gr(&self) -> [f32; 4] {
+        [self.comp[0].last_gr_db, self.comp[1].last_gr_db, self.comp[2].last_gr_db, self.comp[3].last_gr_db]
     }
 
     /// Process a stereo sample pair through the full multiband chain.

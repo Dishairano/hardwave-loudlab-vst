@@ -833,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "hardwave-loudlab"
-version = "0.4.3"
+version = "0.5.0"
 dependencies = [
  "crossbeam-channel",
  "dirs",

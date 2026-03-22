@@ -22,7 +22,7 @@ mod profiles;
 mod protocol;
 
 use auto::AutoEngine;
-use dsp::eq::EqBandParams;
+use dsp::eq::{EqBandParams, FilterType};
 use dsp::compressor::BandCompParams;
 use dsp::{
     BrickwallLimiter, LufsMeter, MultibandCompressor, ParametricEq, SpectrumAnalyzer,
@@ -291,6 +291,7 @@ impl Plugin for HardwaveLoudLab {
             packet.output_lufs = self.output_meter.momentary_lufs();
             packet.true_peak_db = self.output_meter.true_peak();
             packet.spectrum = self.analyzer.get_spectrum();
+            packet.comp_gr = self.compressor.band_gr();
 
             let _ = self.editor_packet_tx.try_send(packet);
         }
@@ -311,24 +312,28 @@ impl HardwaveLoudLab {
                 gain_db: p.eq_low_gain.value(),
                 q: p.eq_low_q.value(),
                 enabled: true,
+                filter_type: FilterType::from(p.eq_low_type.value()),
             },
             EqBandParams {
                 freq: p.eq_low_mid_freq.value(),
                 gain_db: p.eq_low_mid_gain.value(),
                 q: p.eq_low_mid_q.value(),
                 enabled: true,
+                filter_type: FilterType::from(p.eq_low_mid_type.value()),
             },
             EqBandParams {
                 freq: p.eq_high_mid_freq.value(),
                 gain_db: p.eq_high_mid_gain.value(),
                 q: p.eq_high_mid_q.value(),
                 enabled: true,
+                filter_type: FilterType::from(p.eq_high_mid_type.value()),
             },
             EqBandParams {
                 freq: p.eq_high_freq.value(),
                 gain_db: p.eq_high_gain.value(),
                 q: p.eq_high_q.value(),
                 enabled: true,
+                filter_type: FilterType::from(p.eq_high_type.value()),
             },
         ];
 

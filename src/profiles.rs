@@ -8,7 +8,7 @@
 //! - Limiter ceiling.
 
 use crate::dsp::compressor::BandCompParams;
-use crate::dsp::eq::EqBandParams;
+use crate::dsp::eq::{EqBandParams, FilterType};
 use crate::params::Genre;
 
 /// Complete mastering target profile for a genre.
@@ -40,10 +40,10 @@ impl GenreProfile {
     fn hardstyle() -> Self {
         Self {
             eq_bands: [
-                EqBandParams { freq: 60.0, gain_db: 2.5, q: 0.8, enabled: true },
-                EqBandParams { freq: 400.0, gain_db: -1.5, q: 1.0, enabled: true },
-                EqBandParams { freq: 3500.0, gain_db: 1.5, q: 0.9, enabled: true },
-                EqBandParams { freq: 12000.0, gain_db: 2.0, q: 0.7, enabled: true },
+                EqBandParams { freq: 60.0, gain_db: 2.5, q: 0.8, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 400.0, gain_db: -1.5, q: 1.0, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 3500.0, gain_db: 1.5, q: 0.9, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 12000.0, gain_db: 2.0, q: 0.7, enabled: true, filter_type: FilterType::Peak },
             ],
             comp_bands: [
                 BandCompParams { threshold_db: -10.0, ratio: 3.0, attack_ms: 10.0, release_ms: 120.0, makeup_db: 1.0 },
@@ -62,10 +62,10 @@ impl GenreProfile {
     fn rawstyle() -> Self {
         Self {
             eq_bands: [
-                EqBandParams { freq: 55.0, gain_db: 3.5, q: 0.7, enabled: true },
-                EqBandParams { freq: 350.0, gain_db: -2.0, q: 1.2, enabled: true },
-                EqBandParams { freq: 2000.0, gain_db: 2.0, q: 0.8, enabled: true },
-                EqBandParams { freq: 10000.0, gain_db: 1.0, q: 0.6, enabled: true },
+                EqBandParams { freq: 55.0, gain_db: 3.5, q: 0.7, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 350.0, gain_db: -2.0, q: 1.2, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 2000.0, gain_db: 2.0, q: 0.8, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 10000.0, gain_db: 1.0, q: 0.6, enabled: true, filter_type: FilterType::Peak },
             ],
             comp_bands: [
                 BandCompParams { threshold_db: -8.0, ratio: 4.0, attack_ms: 8.0, release_ms: 100.0, makeup_db: 2.0 },
@@ -84,10 +84,10 @@ impl GenreProfile {
     fn hardcore() -> Self {
         Self {
             eq_bands: [
-                EqBandParams { freq: 50.0, gain_db: 3.0, q: 0.7, enabled: true },
-                EqBandParams { freq: 300.0, gain_db: -1.0, q: 1.0, enabled: true },
-                EqBandParams { freq: 4000.0, gain_db: 2.5, q: 0.8, enabled: true },
-                EqBandParams { freq: 14000.0, gain_db: 1.5, q: 0.6, enabled: true },
+                EqBandParams { freq: 50.0, gain_db: 3.0, q: 0.7, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 300.0, gain_db: -1.0, q: 1.0, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 4000.0, gain_db: 2.5, q: 0.8, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 14000.0, gain_db: 1.5, q: 0.6, enabled: true, filter_type: FilterType::Peak },
             ],
             comp_bands: [
                 BandCompParams { threshold_db: -6.0, ratio: 5.0, attack_ms: 6.0, release_ms: 80.0, makeup_db: 3.0 },
@@ -106,10 +106,10 @@ impl GenreProfile {
     fn frenchcore() -> Self {
         Self {
             eq_bands: [
-                EqBandParams { freq: 45.0, gain_db: 4.0, q: 0.6, enabled: true },
-                EqBandParams { freq: 250.0, gain_db: -2.5, q: 1.3, enabled: true },
-                EqBandParams { freq: 5000.0, gain_db: 3.0, q: 0.7, enabled: true },
-                EqBandParams { freq: 15000.0, gain_db: 2.0, q: 0.5, enabled: true },
+                EqBandParams { freq: 45.0, gain_db: 4.0, q: 0.6, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 250.0, gain_db: -2.5, q: 1.3, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 5000.0, gain_db: 3.0, q: 0.7, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 15000.0, gain_db: 2.0, q: 0.5, enabled: true, filter_type: FilterType::Peak },
             ],
             comp_bands: [
                 BandCompParams { threshold_db: -5.0, ratio: 6.0, attack_ms: 5.0, release_ms: 70.0, makeup_db: 4.0 },
@@ -128,10 +128,10 @@ impl GenreProfile {
     fn edm() -> Self {
         Self {
             eq_bands: [
-                EqBandParams { freq: 80.0, gain_db: 1.5, q: 0.8, enabled: true },
-                EqBandParams { freq: 500.0, gain_db: -1.0, q: 1.0, enabled: true },
-                EqBandParams { freq: 3000.0, gain_db: 1.0, q: 0.9, enabled: true },
-                EqBandParams { freq: 12000.0, gain_db: 2.5, q: 0.7, enabled: true },
+                EqBandParams { freq: 80.0, gain_db: 1.5, q: 0.8, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 500.0, gain_db: -1.0, q: 1.0, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 3000.0, gain_db: 1.0, q: 0.9, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 12000.0, gain_db: 2.5, q: 0.7, enabled: true, filter_type: FilterType::Peak },
             ],
             comp_bands: [
                 BandCompParams { threshold_db: -12.0, ratio: 2.5, attack_ms: 10.0, release_ms: 100.0, makeup_db: 0.5 },
@@ -150,10 +150,10 @@ impl GenreProfile {
     fn hiphop() -> Self {
         Self {
             eq_bands: [
-                EqBandParams { freq: 60.0, gain_db: 3.0, q: 0.7, enabled: true },
-                EqBandParams { freq: 400.0, gain_db: -1.5, q: 1.0, enabled: true },
-                EqBandParams { freq: 2500.0, gain_db: 1.5, q: 0.9, enabled: true },
-                EqBandParams { freq: 10000.0, gain_db: 1.0, q: 0.8, enabled: true },
+                EqBandParams { freq: 60.0, gain_db: 3.0, q: 0.7, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 400.0, gain_db: -1.5, q: 1.0, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 2500.0, gain_db: 1.5, q: 0.9, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 10000.0, gain_db: 1.0, q: 0.8, enabled: true, filter_type: FilterType::Peak },
             ],
             comp_bands: [
                 BandCompParams { threshold_db: -10.0, ratio: 3.0, attack_ms: 15.0, release_ms: 150.0, makeup_db: 1.0 },
@@ -172,10 +172,10 @@ impl GenreProfile {
     fn flat() -> Self {
         Self {
             eq_bands: [
-                EqBandParams { freq: 80.0, gain_db: 0.0, q: 0.707, enabled: true },
-                EqBandParams { freq: 500.0, gain_db: 0.0, q: 0.707, enabled: true },
-                EqBandParams { freq: 3000.0, gain_db: 0.0, q: 0.707, enabled: true },
-                EqBandParams { freq: 10000.0, gain_db: 0.0, q: 0.707, enabled: true },
+                EqBandParams { freq: 80.0, gain_db: 0.0, q: 0.707, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 500.0, gain_db: 0.0, q: 0.707, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 3000.0, gain_db: 0.0, q: 0.707, enabled: true, filter_type: FilterType::Peak },
+                EqBandParams { freq: 10000.0, gain_db: 0.0, q: 0.707, enabled: true, filter_type: FilterType::Peak },
             ],
             comp_bands: [
                 BandCompParams { threshold_db: -20.0, ratio: 1.5, attack_ms: 10.0, release_ms: 100.0, makeup_db: 0.0 },

@@ -3,7 +3,7 @@ members = ["xtask"]
 
 [package]
 name = "hardwave-loudlab"
-version = "0.4.3"
+version = "0.5.0"
 edition = "2021"
 license = "Proprietary"
 description = "Hardwave LoudLab — AI-assisted mastering VST3/CLAP plugin by Hardwave Studios"

@@ -100,6 +100,10 @@ fn build_param_map(params: &HardwaveMasterParams) -> HashMap<String, nih_plug::p
     map.insert("eq_high_freq".into(), params.eq_high_freq.as_ptr());
     map.insert("eq_high_gain".into(), params.eq_high_gain.as_ptr());
     map.insert("eq_high_q".into(), params.eq_high_q.as_ptr());
+    map.insert("eq_low_type".into(), params.eq_low_type.as_ptr());
+    map.insert("eq_low_mid_type".into(), params.eq_low_mid_type.as_ptr());
+    map.insert("eq_high_mid_type".into(), params.eq_high_mid_type.as_ptr());
+    map.insert("eq_high_type".into(), params.eq_high_type.as_ptr());
 
     // Compressor
     map.insert("comp_enabled".into(), params.comp_enabled.as_ptr());
@@ -207,6 +211,13 @@ pub fn snapshot_params(params: &HardwaveMasterParams) -> MasterPacket {
         output_lufs: -120.0,
         true_peak_db: -120.0,
         spectrum: None,
+
+        comp_gr: [0.0; 4],
+
+        eq_low_type: params.eq_low_type.value(),
+        eq_low_mid_type: params.eq_low_mid_type.value(),
+        eq_high_mid_type: params.eq_high_mid_type.value(),
+        eq_high_type: params.eq_high_type.value(),
     }
 }
 

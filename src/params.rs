@@ -80,6 +80,15 @@ pub struct HardwaveMasterParams {
     #[id = "eq_high_q"]
     pub eq_high_q: FloatParam,
 
+    #[id = "eq_low_type"]
+    pub eq_low_type: IntParam,
+    #[id = "eq_low_mid_type"]
+    pub eq_low_mid_type: IntParam,
+    #[id = "eq_high_mid_type"]
+    pub eq_high_mid_type: IntParam,
+    #[id = "eq_high_type"]
+    pub eq_high_type: IntParam,
+
     // ── Multiband Compressor ───────────────────────────────────────────────
     #[id = "comp_enabled"]
     pub comp_enabled: BoolParam,
@@ -260,6 +269,11 @@ impl Default for HardwaveMasterParams {
                 0.7,
                 FloatRange::Skewed { min: 0.1, max: 10.0, factor: FloatRange::skew_factor(-2.0) },
             ),
+
+            eq_low_type: IntParam::new("EQ Low Type", 0, IntRange::Linear { min: 0, max: 4 }),
+            eq_low_mid_type: IntParam::new("EQ Lo-Mid Type", 0, IntRange::Linear { min: 0, max: 4 }),
+            eq_high_mid_type: IntParam::new("EQ Hi-Mid Type", 0, IntRange::Linear { min: 0, max: 4 }),
+            eq_high_type: IntParam::new("EQ High Type", 0, IntRange::Linear { min: 0, max: 4 }),
 
             // Multiband Compressor
             comp_enabled: BoolParam::new("Comp On", true),

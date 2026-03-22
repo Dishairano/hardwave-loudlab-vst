@@ -73,6 +73,14 @@ pub struct MasterPacket {
     /// Spectrum magnitudes (dB), 1024 bins, optional (sent every few frames).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spectrum: Option<Vec<f32>>,
+
+    /// Per-band compressor gain reduction (dB), index 0=Sub 1=Lo-M 2=Hi-M 3=High
+    pub comp_gr: [f32; 4],
+
+    pub eq_low_type: i32,
+    pub eq_low_mid_type: i32,
+    pub eq_high_mid_type: i32,
+    pub eq_high_type: i32,
 }
 
 /// JS → Rust messages from the webview.

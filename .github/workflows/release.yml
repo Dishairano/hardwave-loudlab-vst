@@ -166,6 +166,7 @@ jobs:
           name: Hardwave LoudLab ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
+          make_latest: true
           generate_release_notes: true
           files: |
             artifacts/hardwave-loudlab-linux-x64/*.zip
@@ -214,8 +215,14 @@ jobs:
 
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@46.225.219.184"
 
+          BASE="https://github.com/Dishairano/hardwave-loudlab-vst/releases/download/${VERSION}"
           $SSH "docker exec hardwave-database mysql -u fl_organizer_user -p'FlOrganizer2024Secure!' fl_organizer_db -e \"
-            UPDATE products SET current_version = '${VERSION_NUM}' WHERE slug = 'loudlab';
+            UPDATE products SET
+              current_version = '${VERSION_NUM}',
+              download_url_windows = '${BASE}/hardwave-loudlab-windows-x64.zip',
+              download_url_mac     = '${BASE}/hardwave-loudlab-macos-universal.zip',
+              download_url_linux   = '${BASE}/hardwave-loudlab-linux-x64.zip'
+            WHERE slug = 'loudlab';
             INSERT INTO plugin_versions (slug, version) VALUES ('loudlab', '${VERSION}')
               ON DUPLICATE KEY UPDATE version = '${VERSION}';
           \""

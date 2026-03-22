@@ -259,9 +259,9 @@ unsafe fn post_key_to_parent(parent_hwnd: usize, vk: u16) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_KEYDOWN, WM_KEYUP};
     let hwnd = parent_hwnd as windows_sys::Win32::Foundation::HWND;
     // lParam for keydown: scan code 0x39 (space), repeat 1, no flags set
-    PostMessageW(hwnd, WM_KEYDOWN, vk as usize, 0x0039_0001);
+    PostMessageW(hwnd, WM_KEYDOWN, vk as usize, 0x0039_0001_isize);
     // lParam for keyup: prev-state + transition bits set
-    PostMessageW(hwnd, WM_KEYUP,   vk as usize, 0xC039_0001u32 as usize);
+    PostMessageW(hwnd, WM_KEYUP,   vk as usize, 0xC039_0001_u32 as i32 as isize);
 }
 
 /// Handle IPC messages from the webview (set_param, set_genre, etc.).

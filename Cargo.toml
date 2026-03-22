@@ -3,7 +3,7 @@ members = ["xtask"]
 
 [package]
 name = "hardwave-loudlab"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 license = "Proprietary"
 description = "Hardwave LoudLab — AI-assisted mastering VST3/CLAP plugin by Hardwave Studios"
@@ -42,6 +42,9 @@ raw-window-handle = "0.6"
 # ── Linux GTK ────────────────────────────────────────────────────────────────
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [profile.release]
 lto = "thin"

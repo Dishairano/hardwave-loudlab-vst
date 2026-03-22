@@ -230,16 +230,24 @@ fn ipc_init_script(params: &HardwaveMasterParams) -> String {
     format!(
         r#"
 (function() {{
-    // After any mouse release on a non-input element, return OS keyboard focus
-    // to the DAW so transport keys (space, etc.) are not swallowed by the WebView.
+    // After mouse interaction ends, return OS keyboard focus to the DAW so
+    // transport keys (space, etc.) are not swallowed by the WebView.
+    // Debounced 500 ms so that double-clicks work: Windows won't fire
+    // WM_LBUTTONDBLCLK if the focused window changed between the two clicks,
+    // so we must not call SetFocus until after the double-click window has passed.
+    var _focusTimer = null;
     window.addEventListener('mouseup', function(e) {{
         if (e.target.tagName !== 'INPUT') {{
-            try {{ window.ipc.postMessage(JSON.stringify({{ type: 'release_focus' }})); }} catch(_) {{}}
+            clearTimeout(_focusTimer);
+            _focusTimer = setTimeout(function() {{
+                try {{ window.ipc.postMessage(JSON.stringify({{ type: 'release_focus' }})); }} catch(_) {{}}
+            }}, 500);
         }}
     }}, true);
-    // Also release focus when an input field is blurred (user finished typing).
+    // Release focus immediately when an input field is blurred (user finished typing).
     document.addEventListener('blur', function(e) {{
         if (e.target.tagName === 'INPUT') {{
+            clearTimeout(_focusTimer);
             try {{ window.ipc.postMessage(JSON.stringify({{ type: 'release_focus' }})); }} catch(_) {{}}
         }}
     }}, true);

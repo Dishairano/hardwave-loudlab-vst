@@ -149,8 +149,14 @@ pub struct HardwaveMasterParams {
     #[id = "limiter_enabled"]
     pub limiter_enabled: BoolParam,
 
+    #[id = "limiter_threshold"]
+    pub limiter_threshold: FloatParam,
+
     #[id = "limiter_ceiling"]
     pub limiter_ceiling: FloatParam,
+
+    #[id = "limiter_character"]
+    pub limiter_character: FloatParam,
 }
 
 impl Default for HardwaveMasterParams {
@@ -317,12 +323,23 @@ impl Default for HardwaveMasterParams {
 
             // Limiter
             limiter_enabled: BoolParam::new("Limiter On", true),
+            limiter_threshold: FloatParam::new(
+                "Threshold",
+                -6.0,
+                FloatRange::Linear { min: -30.0, max: 0.0 },
+            )
+            .with_unit(" dB"),
             limiter_ceiling: FloatParam::new(
                 "Ceiling",
                 -0.3,
                 FloatRange::Linear { min: -6.0, max: 0.0 },
             )
             .with_unit(" dB"),
+            limiter_character: FloatParam::new(
+                "Character",
+                0.5,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            ),
         }
     }
 }

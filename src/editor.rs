@@ -131,7 +131,9 @@ fn build_param_map(params: &HardwaveMasterParams) -> HashMap<String, nih_plug::p
 
     // Limiter
     map.insert("limiter_enabled".into(), params.limiter_enabled.as_ptr());
+    map.insert("limiter_threshold".into(), params.limiter_threshold.as_ptr());
     map.insert("limiter_ceiling".into(), params.limiter_ceiling.as_ptr());
+    map.insert("limiter_character".into(), params.limiter_character.as_ptr());
 
     map
 }
@@ -197,7 +199,9 @@ pub fn snapshot_params(params: &HardwaveMasterParams) -> MasterPacket {
         stereo_mono_bass_freq: params.stereo_mono_bass_freq.value(),
 
         limiter_enabled: params.limiter_enabled.value(),
+        limiter_threshold: params.limiter_threshold.value(),
         limiter_ceiling: params.limiter_ceiling.value(),
+        limiter_character: params.limiter_character.value(),
 
         input_lufs: -120.0,
         output_lufs: -120.0,
@@ -256,8 +260,12 @@ fn handle_ipc(
             let value = msg.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0);
             if let Some(ptr) = param_map.get(id) {
                 unsafe {
+                    // The webview sends plain/actual values (e.g. -3.0 dB).
+                    // raw_set_parameter_normalized expects a 0..1 normalized value,
+                    // so we must convert first using preview_normalized.
+                    let normalized = ptr.preview_normalized(value as f32);
                     context.raw_begin_set_parameter(*ptr);
-                    context.raw_set_parameter_normalized(*ptr, value as f32);
+                    context.raw_set_parameter_normalized(*ptr, normalized);
                     context.raw_end_set_parameter(*ptr);
                 }
             }
@@ -356,6 +364,15 @@ fn extract_raw_handle(parent: &ParentWindowHandle) -> usize {
         ParentWindowHandle::Win32Hwnd(h) => h as usize,
         _ => 0,
     }
+}
+
+// ─── Shared: persistent WebView data directory ─────────────────────────────
+
+fn webview_data_dir() -> std::path::PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("hardwave")
+        .join("loudlab-webview")
 }
 
 // ─── Windows: TCP polling approach ─────────────────────────────────────────
@@ -499,7 +516,12 @@ fn spawn_unix(
         let ctx = Arc::clone(&context);
         let pmap = Arc::clone(&param_map);
 
-        let webview = match wry::WebViewBuilder::new()
+        let data_dir = webview_data_dir();
+        let _ = std::fs::create_dir_all(&data_dir);
+        // web_context must live as long as the webview; create it on this thread.
+        let mut web_context = wry::WebContext::new(Some(data_dir));
+
+        let webview = match wry::WebViewBuilder::with_web_context(&mut web_context)
             .with_url(&url)
             .with_initialization_script(&init_js)
             .with_ipc_handler(move |msg| {
@@ -545,7 +567,7 @@ fn spawn_unix(
     Box::new(EditorHandle {
         running: running_clone,
         _webview: None,
-        _web_context: None,
+        _web_context: None, // web_context is owned by the editor thread
         _server_thread: None,
         _editor_thread: Some(editor_thread),
     })

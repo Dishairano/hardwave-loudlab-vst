@@ -62,7 +62,9 @@ pub struct MasterPacket {
 
     // ── Limiter ──────────────────────────────────────────────────────────────
     pub limiter_enabled: bool,
+    pub limiter_threshold: f32,
     pub limiter_ceiling: f32,
+    pub limiter_character: f32,
 
     // ── Metering (read-only, pushed from DSP) ────────────────────────────────
     pub input_lufs: f32,

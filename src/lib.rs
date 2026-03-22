@@ -387,7 +387,9 @@ impl HardwaveLoudLab {
         self.stereo.update_filters();
 
         // Limiter.
+        self.limiter.set_threshold(p.limiter_threshold.value());
         self.limiter.set_ceiling(p.limiter_ceiling.value());
+        self.limiter.set_character(p.limiter_character.value());
     }
 }
 

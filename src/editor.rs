@@ -219,12 +219,17 @@ fn ipc_init_script(params: &HardwaveMasterParams) -> String {
     format!(
         r#"
 (function() {{
-    // Forward transport keys (space, etc.) to the DAW instead of consuming them.
-    document.addEventListener('keydown', function(e) {{
-        if (e.code === 'Space') {{
-            e.preventDefault();
-            e.stopPropagation();
-            try {{ window.ipc.postMessage(JSON.stringify({{ type: 'key_passthrough', key: 'space' }})); }} catch(_) {{}}
+    // After any mouse release on a non-input element, return OS keyboard focus
+    // to the DAW so transport keys (space, etc.) are not swallowed by the WebView.
+    window.addEventListener('mouseup', function(e) {{
+        if (e.target.tagName !== 'INPUT') {{
+            try {{ window.ipc.postMessage(JSON.stringify({{ type: 'release_focus' }})); }} catch(_) {{}}
+        }}
+    }}, true);
+    // Also release focus when an input field is blurred (user finished typing).
+    document.addEventListener('blur', function(e) {{
+        if (e.target.tagName === 'INPUT') {{
+            try {{ window.ipc.postMessage(JSON.stringify({{ type: 'release_focus' }})); }} catch(_) {{}}
         }}
     }}, true);
 }})();
@@ -253,16 +258,6 @@ window.__hardwave = {{
     )
 }
 
-/// On Windows: forward a key (by VK code) to the parent (DAW) window.
-#[cfg(target_os = "windows")]
-unsafe fn post_key_to_parent(parent_hwnd: usize, vk: u16) {
-    use windows_sys::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_KEYDOWN, WM_KEYUP};
-    let hwnd = parent_hwnd as windows_sys::Win32::Foundation::HWND;
-    // lParam for keydown: scan code 0x39 (space), repeat 1, no flags set
-    PostMessageW(hwnd, WM_KEYDOWN, vk as usize, 0x0039_0001_isize);
-    // lParam for keyup: prev-state + transition bits set
-    PostMessageW(hwnd, WM_KEYUP,   vk as usize, 0xC039_0001_u32 as i32 as isize);
-}
 
 /// Handle IPC messages from the webview (set_param, set_genre, etc.).
 fn handle_ipc(
@@ -293,17 +288,11 @@ fn handle_ipc(
                 }
             }
         }
-        "key_passthrough" => {
+        "release_focus" => {
             #[cfg(target_os = "windows")]
-            {
-                let key = msg.get("key").and_then(|v| v.as_str()).unwrap_or("");
-                let vk: Option<u16> = match key {
-                    "space" => Some(0x20), // VK_SPACE
-                    _ => None,
-                };
-                if let Some(vk_code) = vk {
-                    unsafe { post_key_to_parent(_parent_hwnd, vk_code); }
-                }
+            unsafe {
+                use windows_sys::Win32::UI::WindowsAndMessaging::SetFocus;
+                SetFocus(_parent_hwnd as windows_sys::Win32::Foundation::HWND);
             }
         }
         "save_token" => {

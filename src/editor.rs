@@ -291,7 +291,7 @@ fn handle_ipc(
         "release_focus" => {
             #[cfg(target_os = "windows")]
             unsafe {
-                use windows_sys::Win32::UI::WindowsAndMessaging::SetFocus;
+                use windows_sys::Win32::UI::Input::KeyboardAndMouse::SetFocus;
                 SetFocus(_parent_hwnd as windows_sys::Win32::Foundation::HWND);
             }
         }

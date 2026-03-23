@@ -7,7 +7,7 @@
 //! On editor open the current DAW-persisted param state is snapshot'd and
 //! injected into the webview init script so the UI never shows stale defaults.
 
-use crossbeam_channel::Receiver;
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use nih_plug::editor::Editor;
 use nih_plug::prelude::{GuiContext, ParentWindowHandle, Param};
 use parking_lot::Mutex;
@@ -22,6 +22,10 @@ use crate::protocol::MasterPacket;
 const LOUDLAB_URL: &str = "https://loudlab.hardwavestudios.com/vst/loudlab";
 const EDITOR_WIDTH: u32 = 1100;
 const EDITOR_HEIGHT: u32 = 700;
+const MIN_WIDTH: u32 = 600;
+const MIN_HEIGHT: u32 = 380;
+const MAX_WIDTH: u32 = 2560;
+const MAX_HEIGHT: u32 = 1600;
 
 /// Wraps a raw window handle value (usize) so wry can use it via rwh 0.6.
 struct RwhWrapper(usize);
@@ -284,6 +288,8 @@ fn handle_ipc(
     param_map: &HashMap<String, nih_plug::prelude::ParamPtr>,
     raw_body: &str,
     _parent_hwnd: usize,
+    editor_size: &Arc<Mutex<(u32, u32)>>,
+    resize_tx: &Arc<Mutex<Option<Sender<(u32, u32)>>>>,
 ) {
     let msg: serde_json::Value = match serde_json::from_str(raw_body) {
         Ok(v) => v,
@@ -314,6 +320,20 @@ fn handle_ipc(
                 SetFocus(_parent_hwnd as windows_sys::Win32::Foundation::HWND);
             }
         }
+        "resize" => {
+            let w = msg.get("width").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let h = msg.get("height").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            if w >= MIN_WIDTH && w <= MAX_WIDTH && h >= MIN_HEIGHT && h <= MAX_HEIGHT {
+                *editor_size.lock() = (w, h);
+                // Tell the host to call Editor::size() and resize the outer window.
+                if context.request_resize() {
+                    // Host accepted — also resize the embedded webview.
+                    if let Some(tx) = resize_tx.lock().as_ref() {
+                        let _ = tx.send((w, h));
+                    }
+                }
+            }
+        }
         "save_token" => {
             if let Some(token) = msg.get("token").and_then(|v| v.as_str()) {
                 let _ = auth::save_token(token);
@@ -331,6 +351,8 @@ pub struct MasterEditor {
     packet_rx: Arc<Mutex<Receiver<MasterPacket>>>,
     auth_token: Option<String>,
     scale_factor: Mutex<f32>,
+    editor_size: Arc<Mutex<(u32, u32)>>,
+    resize_tx: Arc<Mutex<Option<Sender<(u32, u32)>>>>,
 }
 
 impl MasterEditor {
@@ -344,12 +366,15 @@ impl MasterEditor {
             packet_rx,
             auth_token,
             scale_factor: Mutex::new(1.0),
+            editor_size: Arc::new(Mutex::new((EDITOR_WIDTH, EDITOR_HEIGHT))),
+            resize_tx: Arc::new(Mutex::new(None)),
         }
     }
 
     fn scaled_size(&self) -> (u32, u32) {
+        let (w, h) = *self.editor_size.lock();
         let f = *self.scale_factor.lock();
-        ((EDITOR_WIDTH as f32 * f) as u32, (EDITOR_HEIGHT as f32 * f) as u32)
+        ((w as f32 * f) as u32, (h as f32 * f) as u32)
     }
 }
 
@@ -372,14 +397,21 @@ impl Editor for MasterEditor {
         let init_js = ipc_init_script(&self.params);
         let raw_handle = extract_raw_handle(&parent);
 
+        // Create a resize channel; store the sender in editor so the IPC handler can use it.
+        let (resize_tx_val, resize_rx) = unbounded::<(u32, u32)>();
+        *self.resize_tx.lock() = Some(resize_tx_val);
+
+        let editor_size = Arc::clone(&self.editor_size);
+        let resize_tx = Arc::clone(&self.resize_tx);
+
         #[cfg(target_os = "windows")]
         {
-            spawn_windows(raw_handle, url, width, height, packet_rx, context, param_map, init_js)
+            spawn_windows(raw_handle, url, width, height, packet_rx, context, param_map, init_js, resize_rx, editor_size, resize_tx)
         }
 
         #[cfg(not(target_os = "windows"))]
         {
-            spawn_unix(raw_handle, url, width, height, packet_rx, context, param_map, init_js)
+            spawn_unix(raw_handle, url, width, height, packet_rx, context, param_map, init_js, resize_rx, editor_size, resize_tx)
         }
     }
 
@@ -439,6 +471,9 @@ fn spawn_windows(
     context: Arc<dyn GuiContext>,
     param_map: Arc<HashMap<String, nih_plug::prelude::ParamPtr>>,
     base_init_js: String,
+    resize_rx: Receiver<(u32, u32)>,
+    editor_size: Arc<Mutex<(u32, u32)>>,
+    resize_tx: Arc<Mutex<Option<Sender<(u32, u32)>>>>,
 ) -> Box<dyn std::any::Any + Send> {
     use std::io::{Read as IoRead, Write as IoWrite};
     use std::net::TcpListener;
@@ -475,6 +510,9 @@ fn spawn_windows(
                     }
                 }
             }
+            // Drain resize events (Windows WebView2 is COM single-threaded; resize
+            // is handled by the host resizing the parent HWND — just consume signals).
+            while resize_rx.try_recv().is_ok() {}
             std::thread::sleep(std::time::Duration::from_millis(8));
         }
     });
@@ -501,6 +539,8 @@ fn spawn_windows(
     let init_js = format!("{}\n{}", base_init_js, poll_script);
     let ctx = Arc::clone(&context);
     let pmap = Arc::clone(&param_map);
+    let esize = Arc::clone(&editor_size);
+    let rtx = Arc::clone(&resize_tx);
 
     let data_dir = webview2_data_dir();
     let _ = std::fs::create_dir_all(&data_dir);
@@ -513,7 +553,7 @@ fn spawn_windows(
         .with_url(&url)
         .with_initialization_script(&init_js)
         .with_ipc_handler(move |msg| {
-            handle_ipc(&ctx, &pmap, &msg.body(), raw_handle);
+            handle_ipc(&ctx, &pmap, &msg.body(), raw_handle, &esize, &rtx);
         })
         .with_bounds(wry::Rect {
             position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
@@ -546,6 +586,9 @@ fn spawn_unix(
     context: Arc<dyn GuiContext>,
     param_map: Arc<HashMap<String, nih_plug::prelude::ParamPtr>>,
     init_js: String,
+    resize_rx: Receiver<(u32, u32)>,
+    editor_size: Arc<Mutex<(u32, u32)>>,
+    resize_tx: Arc<Mutex<Option<Sender<(u32, u32)>>>>,
 ) -> Box<dyn std::any::Any + Send> {
     let running = Arc::new(AtomicBool::new(true));
     let running_clone = Arc::clone(&running);
@@ -559,6 +602,8 @@ fn spawn_unix(
         let wrapper = RwhWrapper(raw_handle);
         let ctx = Arc::clone(&context);
         let pmap = Arc::clone(&param_map);
+        let esize = Arc::clone(&editor_size);
+        let rtx = Arc::clone(&resize_tx);
 
         let data_dir = webview_data_dir();
         let _ = std::fs::create_dir_all(&data_dir);
@@ -569,7 +614,7 @@ fn spawn_unix(
             .with_url(&url)
             .with_initialization_script(&init_js)
             .with_ipc_handler(move |msg| {
-                handle_ipc(&ctx, &pmap, &msg.body(), raw_handle);
+                handle_ipc(&ctx, &pmap, &msg.body(), raw_handle, &esize, &rtx);
             })
             .with_bounds(wry::Rect {
                 position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
@@ -585,6 +630,14 @@ fn spawn_unix(
         };
 
         while running.load(Ordering::Relaxed) {
+            // Apply any pending resize from the host.
+            while let Ok((w, h)) = resize_rx.try_recv() {
+                let _ = webview.set_bounds(wry::Rect {
+                    position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
+                    size: wry::dpi::Size::Logical(wry::dpi::LogicalSize::new(w as f64, h as f64)),
+                });
+            }
+
             if let Some(rx) = packet_rx.try_lock() {
                 while let Ok(pkt) = rx.try_recv() {
                     if let Ok(json) = serde_json::to_string(&pkt) {

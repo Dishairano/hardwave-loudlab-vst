@@ -424,6 +424,15 @@ impl Editor for MasterEditor {
         true
     }
 
+    fn set_size(&self, width: u32, height: u32) {
+        let w = width.clamp(MIN_WIDTH, MAX_WIDTH);
+        let h = height.clamp(MIN_HEIGHT, MAX_HEIGHT);
+        *self.editor_size.lock() = (w, h);
+        if let Some(tx) = self.resize_tx.lock().as_ref() {
+            let _ = tx.send((w, h));
+        }
+    }
+
     fn param_value_changed(&self, _id: &str, _normalized_value: f32) {}
     fn param_modulation_changed(&self, _id: &str, _modulation_offset: f32) {}
     fn param_values_changed(&self) {}

@@ -66,6 +66,14 @@ pub struct MasterPacket {
     pub limiter_ceiling: f32,
     pub limiter_character: f32,
 
+    // ── Clipper ──────────────────────────────────────────────────────────────
+    pub clipper_enabled: bool,
+    pub clipper_threshold: f32,
+    pub clipper_mode: i32,
+    pub clipper_oversample: bool,
+    /// Clipper gain reduction in dB (metering)
+    pub clipper_gr: f32,
+
     // ── Metering (read-only, pushed from DSP) ────────────────────────────────
     pub input_lufs: f32,
     pub output_lufs: f32,

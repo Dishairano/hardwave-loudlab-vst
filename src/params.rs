@@ -166,6 +166,20 @@ pub struct HardwaveMasterParams {
 
     #[id = "limiter_character"]
     pub limiter_character: FloatParam,
+
+    // ── Clipper ───────────────────────────────────────────────────────────
+    #[id = "clipper_enabled"]
+    pub clipper_enabled: BoolParam,
+
+    #[id = "clipper_threshold"]
+    pub clipper_threshold: FloatParam,
+
+    /// 0 = Hard, 1 = Soft (tanh), 2 = Soft (cubic)
+    #[id = "clipper_mode"]
+    pub clipper_mode: IntParam,
+
+    #[id = "clipper_oversample"]
+    pub clipper_oversample: BoolParam,
 }
 
 impl Default for HardwaveMasterParams {
@@ -354,6 +368,17 @@ impl Default for HardwaveMasterParams {
                 0.5,
                 FloatRange::Linear { min: 0.0, max: 1.0 },
             ),
+
+            // Clipper
+            clipper_enabled: BoolParam::new("Clipper On", false),
+            clipper_threshold: FloatParam::new(
+                "Clip Threshold",
+                -0.1,
+                FloatRange::Linear { min: -6.0, max: 0.0 },
+            )
+            .with_unit(" dB"),
+            clipper_mode: IntParam::new("Clip Mode", 0, IntRange::Linear { min: 0, max: 2 }),
+            clipper_oversample: BoolParam::new("Clip Oversample", true),
         }
     }
 }

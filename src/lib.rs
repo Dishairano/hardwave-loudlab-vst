@@ -2,7 +2,7 @@
 //!
 //! Signal chain:
 //!   Input Gain → EQ (4-band parametric) → Multiband Compressor (4 bands)
-//!   → Stereo Processor (width + mono bass) → Brickwall Limiter → Output Gain
+//!   → Stereo Processor (width + mono bass) → Brickwall Limiter → Clipper → Output Gain
 //!
 //! When Auto mode is enabled, the AI engine analyses the spectrum and adjusts
 //! EQ, compressor, stereo, and limiter settings toward the selected genre target.
@@ -25,7 +25,7 @@ use auto::AutoEngine;
 use dsp::eq::{EqBandParams, FilterType};
 use dsp::compressor::BandCompParams;
 use dsp::{
-    BrickwallLimiter, LufsMeter, MultibandCompressor, ParametricEq, SpectrumAnalyzer,
+    BrickwallLimiter, Clipper, LufsMeter, MultibandCompressor, ParametricEq, SpectrumAnalyzer,
     StereoProcessor,
 };
 use params::{Genre, HardwaveMasterParams};
@@ -41,6 +41,7 @@ struct HardwaveLoudLab {
     compressor: MultibandCompressor,
     stereo: StereoProcessor,
     limiter: BrickwallLimiter,
+    clipper: Clipper,
 
     // Metering.
     analyzer: SpectrumAnalyzer,
@@ -54,6 +55,9 @@ struct HardwaveLoudLab {
     editor_packet_tx: Sender<MasterPacket>,
     editor_packet_rx: Arc<Mutex<Receiver<MasterPacket>>>,
     update_counter: u32,
+
+    // Clipper GR metering: track pre-clip peak per packet cycle.
+    clipper_last_peak: f32,
 
     // State for throttled auto-compute (every N samples).
     samples_since_auto: usize,
@@ -73,6 +77,7 @@ impl Default for HardwaveLoudLab {
             compressor: MultibandCompressor::new(sr),
             stereo: StereoProcessor::new(sr),
             limiter: BrickwallLimiter::new(sr),
+            clipper: Clipper::new(),
             analyzer: SpectrumAnalyzer::new(sr),
             input_meter: LufsMeter::new(sr),
             output_meter: LufsMeter::new(sr),
@@ -80,6 +85,7 @@ impl Default for HardwaveLoudLab {
             editor_packet_tx: pkt_tx,
             editor_packet_rx: Arc::new(Mutex::new(pkt_rx)),
             update_counter: 0,
+            clipper_last_peak: 0.0,
             samples_since_auto: 0,
             current_profile: GenreProfile::for_genre(Genre::Hardstyle),
             sample_rate: sr,
@@ -143,6 +149,7 @@ impl Plugin for HardwaveLoudLab {
         self.compressor.reset();
         self.stereo.reset();
         self.limiter.reset();
+        self.clipper.reset();
         self.analyzer.reset();
         self.input_meter.reset();
         self.output_meter.reset();
@@ -167,6 +174,7 @@ impl Plugin for HardwaveLoudLab {
         let comp_enabled = p.comp_enabled.value();
         let stereo_enabled = p.stereo_enabled.value();
         let limiter_enabled = p.limiter_enabled.value();
+        let clipper_enabled = p.clipper_enabled.value();
         let genre = p.genre.value();
 
         // Snapshot all param values for the editor packet.
@@ -265,6 +273,15 @@ impl Plugin for HardwaveLoudLab {
                 r = lr;
             }
 
+            // Clipper.
+            if clipper_enabled {
+                let pre_peak = l.abs().max(r.abs());
+                self.clipper_last_peak = self.clipper_last_peak.max(pre_peak);
+                let (cl, cr) = self.clipper.process(l, r);
+                l = cl;
+                r = cr;
+            }
+
             // Output gain.
             l *= output_gain;
             r *= output_gain;
@@ -292,6 +309,8 @@ impl Plugin for HardwaveLoudLab {
             packet.true_peak_db = self.output_meter.true_peak();
             packet.spectrum = self.analyzer.get_spectrum();
             packet.comp_gr = self.compressor.band_gr();
+            packet.clipper_gr = self.clipper.gr_db(self.clipper_last_peak);
+            self.clipper_last_peak = 0.0;
 
             let _ = self.editor_packet_tx.try_send(packet);
         }
@@ -395,6 +414,11 @@ impl HardwaveLoudLab {
         self.limiter.set_threshold(p.limiter_threshold.value());
         self.limiter.set_ceiling(p.limiter_ceiling.value());
         self.limiter.set_character(p.limiter_character.value());
+
+        // Clipper.
+        self.clipper.set_threshold(p.clipper_threshold.value());
+        self.clipper.set_mode(dsp::clipper::ClipMode::from_i32(p.clipper_mode.value()));
+        self.clipper.set_oversample(p.clipper_oversample.value());
     }
 }
 

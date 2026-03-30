@@ -143,6 +143,12 @@ fn build_param_map(params: &HardwaveMasterParams) -> HashMap<String, nih_plug::p
     map.insert("limiter_ceiling".into(), params.limiter_ceiling.as_ptr());
     map.insert("limiter_character".into(), params.limiter_character.as_ptr());
 
+    // Clipper
+    map.insert("clipper_enabled".into(), params.clipper_enabled.as_ptr());
+    map.insert("clipper_threshold".into(), params.clipper_threshold.as_ptr());
+    map.insert("clipper_mode".into(), params.clipper_mode.as_ptr());
+    map.insert("clipper_oversample".into(), params.clipper_oversample.as_ptr());
+
     map
 }
 
@@ -210,6 +216,12 @@ pub fn snapshot_params(params: &HardwaveMasterParams) -> MasterPacket {
         limiter_threshold: params.limiter_threshold.value(),
         limiter_ceiling: params.limiter_ceiling.value(),
         limiter_character: params.limiter_character.value(),
+
+        clipper_enabled: params.clipper_enabled.value(),
+        clipper_threshold: params.clipper_threshold.value(),
+        clipper_mode: params.clipper_mode.value(),
+        clipper_oversample: params.clipper_oversample.value(),
+        clipper_gr: 0.0,
 
         input_lufs: -120.0,
         output_lufs: -120.0,

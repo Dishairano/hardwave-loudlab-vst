@@ -126,7 +126,7 @@ impl Plugin for HardwaveLoudLab {
         &mut self,
         _audio_io_layout: &AudioIOLayout,
         buffer_config: &BufferConfig,
-        _context: &mut impl InitContext<Self>,
+        context: &mut impl InitContext<Self>,
     ) -> bool {
         let sr = buffer_config.sample_rate;
         self.sample_rate = sr;
@@ -139,6 +139,10 @@ impl Plugin for HardwaveLoudLab {
         self.analyzer.set_sample_rate(sr);
         self.input_meter.set_sample_rate(sr);
         self.output_meter.set_sample_rate(sr);
+
+        // Report the limiter's lookahead delay so the host aligns parallel
+        // routing and offline renders with dry audio.
+        context.set_latency_samples(self.limiter.latency_samples());
 
         true
     }

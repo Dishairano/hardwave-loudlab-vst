@@ -71,6 +71,12 @@ impl BrickwallLimiter {
         self.reset();
     }
 
+    /// Samples of processing latency the limiter introduces (lookahead delay line).
+    /// Report this to the host via `set_latency_samples` so renders align with dry.
+    pub fn latency_samples(&self) -> u32 {
+        self.delay_len as u32
+    }
+
     pub fn reset(&mut self) {
         self.delay_l.iter_mut().for_each(|s| *s = 0.0);
         self.delay_r.iter_mut().for_each(|s| *s = 0.0);

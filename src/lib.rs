@@ -21,6 +21,92 @@ mod params;
 mod profiles;
 mod protocol;
 
+// ─── Crash handler ───────────────────────────────────────────────────────────
+//
+// Mirrors the Analyser's pattern. A panic crossing the FFI boundary into a VST
+// host is undefined behaviour and almost always crashes the host process.
+// Installing a panic hook means any panic we miss in the editor / IPC paths
+// gets logged to %APPDATA%\hardwave\loudlab-crash.log instead of being lost.
+
+fn hardwave_data_dir() -> std::path::PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("hardwave")
+}
+
+fn crash_log_path() -> std::path::PathBuf {
+    hardwave_data_dir().join("loudlab-crash.log")
+}
+
+fn crash_pending_path() -> std::path::PathBuf {
+    hardwave_data_dir().join("loudlab-crash-pending")
+}
+
+fn install_crash_handler() {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            use std::io::Write;
+            let path = crash_log_path();
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+            {
+                let ts = unix_timestamp();
+                let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
+                    (*s).to_string()
+                } else if let Some(s) = info.payload().downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "unknown panic".to_string()
+                };
+                let location = info
+                    .location()
+                    .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+                    .unwrap_or_else(|| "unknown location".to_string());
+                let bt = std::backtrace::Backtrace::force_capture();
+
+                let _ = writeln!(f, "========================================");
+                let _ = writeln!(f, "HARDWAVE LOUDLAB CRASH REPORT");
+                let _ = writeln!(f, "Time:     {}", ts);
+                let _ = writeln!(f, "Version:  {}", env!("CARGO_PKG_VERSION"));
+                let _ = writeln!(f, "OS:       {}", std::env::consts::OS);
+                let _ = writeln!(f, "Arch:     {}", std::env::consts::ARCH);
+                let _ = writeln!(f, "Location: {}", location);
+                let _ = writeln!(f, "Message:  {}", payload);
+                let _ = writeln!(f, "");
+                let _ = writeln!(f, "Backtrace:");
+                let _ = writeln!(f, "{}", bt);
+                let _ = writeln!(f, "========================================");
+                let _ = writeln!(f);
+            }
+            let pending = crash_pending_path();
+            if let Some(parent) = pending.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let crash_ts = unix_timestamp();
+            let _ = std::fs::write(
+                &pending,
+                format!("loudlab\n{}\n{}", env!("CARGO_PKG_VERSION"), crash_ts),
+            );
+            prev(info);
+        }));
+    });
+}
+
+fn unix_timestamp() -> String {
+    let dur = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    format!("{} (unix)", dur.as_secs())
+}
+
 use auto::AutoEngine;
 use dsp::eq::EqBandParams;
 use dsp::compressor::BandCompParams;
@@ -64,6 +150,11 @@ struct HardwaveLoudLab {
 
 impl Default for HardwaveLoudLab {
     fn default() -> Self {
+        // Install the panic hook before anything else can fault. Idempotent
+        // via std::sync::Once, so it's safe to call from every plug-in
+        // instance the host creates.
+        install_crash_handler();
+
         let sr = 44100.0;
         let (pkt_tx, pkt_rx) = crossbeam_channel::bounded(4);
         Self {

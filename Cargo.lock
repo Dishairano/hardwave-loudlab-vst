@@ -833,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "hardwave-loudlab"
-version = "0.2.0"
+version = "0.6.3"
 dependencies = [
  "crossbeam-channel",
  "dirs",
@@ -1136,7 +1136,7 @@ dependencies = [
 [[package]]
 name = "nih_plug"
 version = "0.0.0"
-source = "git+https://github.com/robbert-vdh/nih-plug.git#28b149ec4d62757d0b448809148a0c3ca6e09a95"
+source = "git+https://github.com/Dishairano/nih-plug-hardwave.git?branch=main#182104c5124c5fce090504247684e9236ac6cf42"
 dependencies = [
  "anyhow",
  "anymap3",
@@ -1166,7 +1166,7 @@ dependencies = [
 [[package]]
 name = "nih_plug_derive"
 version = "0.1.0"
-source = "git+https://github.com/robbert-vdh/nih-plug.git#28b149ec4d62757d0b448809148a0c3ca6e09a95"
+source = "git+https://github.com/Dishairano/nih-plug-hardwave.git?branch=main#182104c5124c5fce090504247684e9236ac6cf42"
 dependencies = [
  "proc-macro2",
  "quote",

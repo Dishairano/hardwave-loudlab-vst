@@ -239,6 +239,7 @@ jobs:
           PLUGIN_NAME: "Hardwave LoudLab"
         run: |
           set -eu
+          git fetch --tags --force >/dev/null 2>&1 || true
           BULLETS=$(git tag -l --format='%(contents)' "$VERSION" 2>/dev/null \
             | grep '^[[:space:]]*[-*]' \
             | sed -e 's/^[[:space:]]*[-*][[:space:]]*//' \

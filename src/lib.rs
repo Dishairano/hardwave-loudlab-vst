@@ -42,6 +42,8 @@ fn crash_pending_path() -> std::path::PathBuf {
     hardwave_data_dir().join("loudlab-crash-pending")
 }
 
+mod crash_reporter;
+
 fn install_crash_handler() {
     use std::sync::Once;
     static INIT: Once = Once::new();
@@ -154,6 +156,7 @@ impl Default for HardwaveLoudLab {
         // via std::sync::Once, so it's safe to call from every plug-in
         // instance the host creates.
         install_crash_handler();
+        crash_reporter::install("loudlab");
 
         let sr = 44100.0;
         let (pkt_tx, pkt_rx) = crossbeam_channel::bounded(4);

@@ -1,0 +1,96 @@
+name: Discord Changelog Post
+
+# Manual-only workflow for re-posting the Discord changelog of an existing
+# release without rebuilding binaries or recreating the GitHub release.
+# Useful when the release-time post used a stale workflow that produced a
+# placeholder message instead of real bullets.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Existing release tag (e.g. v0.6.9)'
+        required: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Post Discord changelog
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          VERSION: ${{ github.event.inputs.version }}
+          PLUGIN_NAME: "Hardwave LoudLab"
+        run: |
+          set -eu
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL secret is not set — aborting." >&2
+            exit 1
+          fi
+
+          # Same extraction logic as release.yml — single source of truth
+          # would be a reusable workflow, but the body is short enough that
+          # duplicating it here keeps the file standalone.
+          BULLETS=""
+          if [ -f CHANGELOG.md ]; then
+            BULLETS=$(awk -v ver="$VERSION" '
+              /^## v[0-9]/ {
+                if (in_sec) exit
+                if ($2 == ver) in_sec = 1
+                next
+              }
+              in_sec && /^- / {
+                sub(/^- /, "")
+                print
+              }
+            ' CHANGELOG.md | sed 's/[[:space:]]*$//')
+          fi
+
+          if [ -z "$BULLETS" ]; then
+            git fetch --tags --force >/dev/null 2>&1 || true
+            BULLETS=$(git tag -l --format='%(contents)' "$VERSION" 2>/dev/null \
+              | grep '^[[:space:]]*[-*]' \
+              | sed -e 's/^[[:space:]]*[-*][[:space:]]*//' \
+                    -e 's/[[:space:]]*$//' \
+              || true)
+          fi
+
+          if [ -z "$BULLETS" ]; then
+            BULLETS="Stability and maintenance updates"
+          fi
+
+          BULLETS=$(printf '%s\n' "$BULLETS" | head -n 15)
+
+          DESC_BODY=$(printf '%s\n' "$BULLETS" \
+            | sed -e '/^[[:space:]]*$/d' \
+                  -e 's/[[:space:]]*\.$//' \
+                  -e 's/^/- /' \
+                  -e 's/$/./')
+
+          DESCRIPTION=$(printf "**What's new**\n%s\n\nInstall or update via the **Hardwave Suite**." "$DESC_BODY")
+          PUB_DATE=$(git log -1 --format=%cd --date=format:'%-d %b %Y' "$VERSION" 2>/dev/null || date -u +"%-d %b %Y")
+          FOOTER="${PLUGIN_NAME} · published ${PUB_DATE}"
+          TITLE="${PLUGIN_NAME} ${VERSION}"
+
+          PAYLOAD=$(jq -n \
+            --arg title "$TITLE" \
+            --arg description "$DESCRIPTION" \
+            --arg footer "$FOOTER" \
+            '{
+              "embeds": [{
+                "title": $title,
+                "description": $description,
+                "color": 14427686,
+                "footer": { "text": $footer }
+              }]
+            }')
+
+          curl -fsS -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$DISCORD_WEBHOOK_URL" >/dev/null
+          echo "Discord changelog re-posted for ${VERSION}"

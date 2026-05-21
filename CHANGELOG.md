@@ -1,5 +1,35 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.9 — Step 1 Diagnose wired end-to-end (2026-05-21)
+
+The Learn-mode "Diagnose" step previously rendered against fake numbers —
+hardcoded capture progress, hardcoded LUFS-M peak, no real "is playing"
+indicator, and a dead "Reset capture" button. This release exposes the
+engine signals the step needs.
+
+### Added — MasterPacket fields
+
+- `is_playing: bool` — last reported transport.playing state. Drives the
+  Step 1 "Listening / Paused" pill.
+- `lufs_max_momentary: f32` — running peak-hold of the output bus's
+  momentary LUFS since the last `reset_capture`. Drives the "LUFS-M
+  (drop peak)" stat card.
+
+### Added — IPC
+
+- `reset_capture` message. The editor's IPC handler flips a shared
+  `AtomicBool`; `process()` drains it at the top of the next block and
+  resets the input/output LUFS meters, the stereo meter, the
+  `max_pos_samples` track-duration estimate, and the peak-momentary hold.
+  Used by the Step 1 "Reset capture" button.
+
+### Threading
+
+- `MasterEditor` now owns an `Arc<AtomicBool>` shared with the audio
+  thread. Both the wry IPC handler and the HTTP /ipc POST handler use it.
+  Release/Acquire ordering pairs the editor write with the audio-thread
+  read so the reset is visible across cores.
+
 ## v0.6.8 — master bypass + track duration (2026-05-21)
 
 The header On/Off toggle in the webview previously sent `master_enabled`,

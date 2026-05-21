@@ -264,6 +264,8 @@ pub fn snapshot_params(params: &HardwaveMasterParams) -> MasterPacket {
         ms_ratio: 0.5,
         sample_rate: 44_100.0,
         track_duration: 0.0,
+        is_playing: false,
+        lufs_max_momentary: -120.0,
         spectrum: None,
     }
 }
@@ -304,6 +306,7 @@ window.__hardwave = {{
 fn handle_ipc(
     context: &Arc<dyn GuiContext>,
     param_map: &HashMap<String, nih_plug::prelude::ParamPtr>,
+    reset_capture_flag: &std::sync::atomic::AtomicBool,
     raw_body: &str,
 ) {
     let msg: serde_json::Value = match serde_json::from_str(raw_body) {
@@ -332,6 +335,13 @@ fn handle_ipc(
                 }
             }
         }
+        "reset_capture" => {
+            // Set the atomic; process() picks it up at the top of the next
+            // block and resets the meters + max-pos + max-momentary in one
+            // shot. Using Release ordering pairs with the Acquire load on the
+            // audio thread so the reset is visible there.
+            reset_capture_flag.store(true, std::sync::atomic::Ordering::Release);
+        }
         "save_token" => {
             if let Some(token) = msg.get("token").and_then(|v| v.as_str()) {
                 let _ = auth::save_token(token);
@@ -347,6 +357,11 @@ fn handle_ipc(
 pub struct MasterEditor {
     params: Arc<HardwaveMasterParams>,
     packet_rx: Arc<Mutex<Receiver<MasterPacket>>>,
+    /// Shared with the audio thread. When the webview sends a
+    /// `reset_capture` IPC message we flip this to `true`; the next
+    /// `process()` call drains it and resets the LUFS meters, max
+    /// position, and max momentary.
+    reset_capture_flag: Arc<std::sync::atomic::AtomicBool>,
     auth_token: Option<String>,
     scale_factor: Mutex<f32>,
     /// Process-unique identifier for this plug-in instance. Used to give
@@ -359,11 +374,13 @@ impl MasterEditor {
     pub fn new(
         params: Arc<HardwaveMasterParams>,
         packet_rx: Arc<Mutex<Receiver<MasterPacket>>>,
+        reset_capture_flag: Arc<std::sync::atomic::AtomicBool>,
         auth_token: Option<String>,
     ) -> Self {
         Self {
             params,
             packet_rx,
+            reset_capture_flag,
             auth_token,
             scale_factor: Mutex::new(1.0),
             instance_id: unique_instance_id(),
@@ -398,14 +415,16 @@ impl Editor for MasterEditor {
         #[cfg(target_os = "windows")]
         {
             spawn_windows(
-                raw_handle, url, width, height, packet_rx, context, param_map, init_js,
+                raw_handle, url, width, height, packet_rx, context, param_map,
+                Arc::clone(&self.reset_capture_flag), init_js,
                 self.instance_id.clone(),
             )
         }
 
         #[cfg(not(target_os = "windows"))]
         {
-            spawn_unix(raw_handle, url, width, height, packet_rx, context, param_map, init_js)
+            spawn_unix(raw_handle, url, width, height, packet_rx, context, param_map,
+                Arc::clone(&self.reset_capture_flag), init_js)
         }
     }
 
@@ -463,6 +482,7 @@ fn spawn_windows(
     packet_rx: Arc<Mutex<Receiver<MasterPacket>>>,
     context: Arc<dyn GuiContext>,
     param_map: Arc<HashMap<String, nih_plug::prelude::ParamPtr>>,
+    reset_capture_flag: Arc<std::sync::atomic::AtomicBool>,
     base_init_js: String,
     instance_id: String,
 ) -> Box<dyn std::any::Any + Send> {
@@ -512,6 +532,7 @@ fn spawn_windows(
     // v0.6.7) — the HTTP POST path is the canonical route now.
     let server_ctx = Arc::clone(&context);
     let server_pmap = Arc::clone(&param_map);
+    let server_reset_flag = Arc::clone(&reset_capture_flag);
 
     let server_thread = std::thread::spawn(move || {
         listener.set_nonblocking(true).ok();
@@ -531,7 +552,7 @@ fn spawn_windows(
                     // buffer tail; trim them so the JSON parse doesn't reject.
                     let trimmed = body.trim_end_matches('\0').trim();
                     if !trimmed.is_empty() {
-                        handle_ipc(&server_ctx, &server_pmap, trimmed);
+                        handle_ipc(&server_ctx, &server_pmap, &server_reset_flag, trimmed);
                     }
                     let response = "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nContent-Length: 2\r\n\r\n{}";
                     let _ = stream.write_all(response.as_bytes());
@@ -591,6 +612,7 @@ fn spawn_windows(
     let init_js = format!("{}\n{}", base_init_js, poll_script);
     let ctx = Arc::clone(&context);
     let pmap = Arc::clone(&param_map);
+    let ipc_reset_flag = Arc::clone(&reset_capture_flag);
 
     let data_dir = webview2_data_dir(&instance_id);
     let _ = std::fs::create_dir_all(&data_dir);
@@ -603,7 +625,7 @@ fn spawn_windows(
         .with_url(&url)
         .with_initialization_script(&init_js)
         .with_ipc_handler(move |msg| {
-            handle_ipc(&ctx, &pmap, &msg.body());
+            handle_ipc(&ctx, &pmap, &ipc_reset_flag, &msg.body());
         })
         .with_bounds(wry::Rect {
             position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
@@ -639,6 +661,7 @@ fn spawn_unix(
     packet_rx: Arc<Mutex<Receiver<MasterPacket>>>,
     context: Arc<dyn GuiContext>,
     param_map: Arc<HashMap<String, nih_plug::prelude::ParamPtr>>,
+    reset_capture_flag: Arc<std::sync::atomic::AtomicBool>,
     init_js: String,
 ) -> Box<dyn std::any::Any + Send> {
     let shutdown = Arc::new(ShutdownSignal::new());
@@ -654,12 +677,13 @@ fn spawn_unix(
         let wrapper = RwhWrapper(raw_handle);
         let ctx = Arc::clone(&context);
         let pmap = Arc::clone(&param_map);
+        let ipc_reset_flag = Arc::clone(&reset_capture_flag);
 
         let webview = match wry::WebViewBuilder::new()
             .with_url(&url)
             .with_initialization_script(&init_js)
             .with_ipc_handler(move |msg| {
-                handle_ipc(&ctx, &pmap, &msg.body());
+                handle_ipc(&ctx, &pmap, &ipc_reset_flag, &msg.body());
             })
             .with_bounds(wry::Rect {
                 position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),

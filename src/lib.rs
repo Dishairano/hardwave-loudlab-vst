@@ -12,6 +12,7 @@ use nih_plug::prelude::*;
 use parking_lot::Mutex;
 use std::num::NonZeroU32;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 mod auth;
 mod auto;
@@ -158,6 +159,23 @@ struct HardwaveLoudLab {
     /// header — pragmatic stand-in for project length without a Transport
     /// loop range.
     max_pos_samples: i64,
+
+    /// Last reported transport.playing state. Emitted in the packet so the
+    /// Step 1 "Listening" indicator turns green when the user presses play
+    /// and grey when they stop.
+    last_is_playing: bool,
+
+    /// Peak momentary LUFS observed since the last `reset_capture`. The
+    /// Step 1 "LUFS-M (drop peak)" stat tracks this — when the limiter is
+    /// going to work hardest is the loudest 400 ms window the meter has
+    /// seen.
+    lufs_max_momentary: f32,
+
+    /// Reset-capture flag — set to `true` by the editor's IPC handler when
+    /// the user clicks "Reset capture" in Step 1, drained by `process()`
+    /// at the top of the next block. Using an atomic avoids needing a
+    /// realtime channel for a single-bit signal.
+    reset_capture_flag: Arc<AtomicBool>,
 }
 
 impl Default for HardwaveLoudLab {
@@ -189,6 +207,9 @@ impl Default for HardwaveLoudLab {
             current_profile: GenreProfile::for_genre(Genre::Hardstyle),
             sample_rate: sr,
             max_pos_samples: 0,
+            last_is_playing: false,
+            lufs_max_momentary: -120.0,
+            reset_capture_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -218,6 +239,7 @@ impl Plugin for HardwaveLoudLab {
         Some(Box::new(editor::MasterEditor::new(
             Arc::clone(&self.params),
             Arc::clone(&self.editor_packet_rx),
+            Arc::clone(&self.reset_capture_flag),
             token,
         )))
     }
@@ -283,10 +305,25 @@ impl Plugin for HardwaveLoudLab {
         // us per-block position; the maximum across blocks is the closest
         // pragmatic stand-in for "track length" without a Transport loop range
         // (some DAWs don't expose project length at all).
-        if let Some(pos) = context.transport().pos_samples() {
+        let transport = context.transport();
+        if let Some(pos) = transport.pos_samples() {
             if pos > self.max_pos_samples {
                 self.max_pos_samples = pos;
             }
+        }
+        self.last_is_playing = transport.playing;
+
+        // Drain the Step 1 "Reset capture" signal from the editor IPC thread.
+        // When set, blow away the integrated/short-term LUFS history, the max
+        // observed position, and the max momentary so the next capture starts
+        // from a clean slate. Acquire pairs with the Release store in
+        // handle_ipc to give us a happens-before edge across threads.
+        if self.reset_capture_flag.swap(false, Ordering::Acquire) {
+            self.input_meter.reset();
+            self.output_meter.reset();
+            self.output_stereo_meter.reset();
+            self.max_pos_samples = 0;
+            self.lufs_max_momentary = -120.0;
         }
 
         // Snapshot all param values for the editor packet.
@@ -443,6 +480,17 @@ impl Plugin for HardwaveLoudLab {
             } else {
                 0.0
             };
+            packet.is_playing = self.last_is_playing;
+            // Update peak-momentary hold on the output bus. We refresh this in
+            // the packet-emission block (~15 Hz) rather than per-sample — the
+            // momentary LUFS itself is a 400 ms moving average, so checking
+            // for new maxima at 60 ms intervals captures peaks just as well
+            // and keeps the hot path branch-free.
+            let momentary = self.output_meter.momentary_lufs();
+            if momentary > self.lufs_max_momentary {
+                self.lufs_max_momentary = momentary;
+            }
+            packet.lufs_max_momentary = self.lufs_max_momentary;
             packet.spectrum = self.analyzer.get_spectrum();
 
             let _ = self.editor_packet_tx.try_send(packet);

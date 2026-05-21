@@ -94,6 +94,14 @@ pub struct MasterPacket {
     /// session, in seconds. Drives the webview header's "Track loaded · MM:SS"
     /// readout. 0.0 until the host starts reporting transport position.
     pub track_duration: f32,
+    /// Whether the host transport is currently playing. Drives the Step 1
+    /// "Listening" indicator in the webview — green when true, grey when the
+    /// user has paused. False until the host first signals play.
+    pub is_playing: bool,
+    /// Peak momentary LUFS seen since the last `reset_capture`. The Step 1
+    /// "LUFS-M (drop peak)" stat reads this — it's the loudest 400 ms window
+    /// observed so far, the spot where the limiter will work hardest.
+    pub lufs_max_momentary: f32,
     /// Spectrum magnitudes (dB), 1024 bins, optional (sent every few frames).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spectrum: Option<Vec<f32>>,

@@ -255,7 +255,13 @@ pub fn snapshot_params(params: &HardwaveMasterParams) -> MasterPacket {
 
         input_lufs: -120.0,
         output_lufs: -120.0,
+        lufs_short_term: -120.0,
+        lufs_integrated: -120.0,
         true_peak_db: -120.0,
+        dynamic_range: 0.0,
+        correlation: 1.0,
+        ms_ratio: 0.5,
+        sample_rate: 44_100.0,
         spectrum: None,
     }
 }

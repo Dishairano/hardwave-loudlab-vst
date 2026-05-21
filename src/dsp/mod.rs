@@ -9,5 +9,5 @@ pub use analyzer::SpectrumAnalyzer;
 pub use compressor::MultibandCompressor;
 pub use eq::ParametricEq;
 pub use limiter::BrickwallLimiter;
-pub use metering::LufsMeter;
+pub use metering::{LufsMeter, StereoMeter};
 pub use stereo::StereoProcessor;

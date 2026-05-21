@@ -114,7 +114,7 @@ use dsp::eq::EqBandParams;
 use dsp::compressor::BandCompParams;
 use dsp::{
     BrickwallLimiter, LufsMeter, MultibandCompressor, ParametricEq, SpectrumAnalyzer,
-    StereoProcessor,
+    StereoMeter, StereoProcessor,
 };
 use params::{Genre, HardwaveMasterParams};
 use profiles::GenreProfile;
@@ -134,6 +134,10 @@ struct HardwaveLoudLab {
     analyzer: SpectrumAnalyzer,
     input_meter: LufsMeter,
     output_meter: LufsMeter,
+    // Stereo meter operates on the post-mix output bus so the user sees the
+    // correlation / mid-side balance of what they are about to render. A
+    // 3-second sliding window matches the LUFS short-term timing.
+    output_stereo_meter: StereoMeter,
 
     // Auto engine.
     auto_engine: AutoEngine,
@@ -170,6 +174,7 @@ impl Default for HardwaveLoudLab {
             analyzer: SpectrumAnalyzer::new(sr),
             input_meter: LufsMeter::new(sr),
             output_meter: LufsMeter::new(sr),
+            output_stereo_meter: StereoMeter::new(sr),
             auto_engine: AutoEngine::new(),
             editor_packet_tx: pkt_tx,
             editor_packet_rx: Arc::new(Mutex::new(pkt_rx)),
@@ -227,6 +232,7 @@ impl Plugin for HardwaveLoudLab {
         self.analyzer.set_sample_rate(sr);
         self.input_meter.set_sample_rate(sr);
         self.output_meter.set_sample_rate(sr);
+        self.output_stereo_meter.set_sample_rate(sr);
 
         true
     }
@@ -240,6 +246,7 @@ impl Plugin for HardwaveLoudLab {
         self.analyzer.reset();
         self.input_meter.reset();
         self.output_meter.reset();
+        self.output_stereo_meter.reset();
         self.auto_engine.reset();
         self.samples_since_auto = 0;
     }
@@ -369,6 +376,7 @@ impl Plugin for HardwaveLoudLab {
 
             // Output metering.
             self.output_meter.process(l, r);
+            self.output_stereo_meter.process(l, r);
 
             // Write output.
             *frame.get_mut(0).unwrap() = l;
@@ -383,7 +391,21 @@ impl Plugin for HardwaveLoudLab {
             let mut packet = pkt_snapshot;
             packet.input_lufs = self.input_meter.momentary_lufs();
             packet.output_lufs = self.output_meter.momentary_lufs();
+            packet.lufs_short_term = self.output_meter.short_term_lufs();
+            packet.lufs_integrated = self.output_meter.integrated_lufs();
             packet.true_peak_db = self.output_meter.true_peak();
+            // Dynamic range as PLR — peak-to-loudness ratio against the 3 s
+            // short-term measurement. Falls back to 0 (rather than negative)
+            // before the short-term window has filled.
+            let st = self.output_meter.short_term_lufs();
+            packet.dynamic_range = if st > -119.0 {
+                (packet.true_peak_db - st).max(0.0)
+            } else {
+                0.0
+            };
+            packet.correlation = self.output_stereo_meter.correlation();
+            packet.ms_ratio = self.output_stereo_meter.mid_fraction();
+            packet.sample_rate = self.sample_rate;
             packet.spectrum = self.analyzer.get_spectrum();
 
             let _ = self.editor_packet_tx.try_send(packet);

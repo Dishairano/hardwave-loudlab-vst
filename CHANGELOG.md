@@ -1,5 +1,33 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.7 — HTTP /ipc fallback for webview → host param edits (2026-05-21)
+
+Even after v0.6.6 fixed the normalization, knobs and sliders still didn't
+respond to user input. Root cause: the wry IPC bridge
+(`window.ipc.postMessage`) is unreliable in the WebView2 STA context FL
+Studio hosts us in — the same class of bug the analyser hit and worked
+around in vst-webviews commit d61ff33 by switching to HTTP POST.
+
+This release applies the same fix in LoudLab. The packet server (which was
+already running on a loopback port for outbound `MasterPacket` streaming)
+now also accepts `POST /ipc` with a JSON body, routes through `handle_ipc`
+with its proper `preview_normalized` conversion. The init script exposes
+the port as `window.__loudlab_packet_port` so the webview's `sendParam`
+helper can POST to it. The legacy IPC path is kept as a belt-and-braces
+fallback for old webviews / browser context.
+
+### Changed
+
+- `src/editor.rs` server thread: distinguishes GET (return latest packet),
+  POST /ipc (apply param/genre/auto message), and OPTIONS (CORS preflight).
+  Buffer size grows from 1 KB → 4 KB so the body of a `set_param` POST
+  isn't truncated.
+- Poll script injects `window.__loudlab_packet_port = <port>` so the
+  frontend can find the loopback port.
+
+The webview side (`apps/loudlab/src/hooks/useHwPacket.ts`) ships in the
+matching `vst-webviews` deploy.
+
 ## v0.6.6 — Fix knob/slider interactions clamping to extremes (2026-05-21)
 
 Every knob and slider in the LoudLab webview behaved as if it only had two

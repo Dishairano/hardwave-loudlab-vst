@@ -504,19 +504,49 @@ fn spawn_windows(
     let latest_json_server = Arc::clone(&latest_json);
     let shutdown_server = Arc::clone(&shutdown);
 
+    // Server thread needs its own clones of context + param_map so the POST
+    // /ipc handler can apply param changes from the webview. The wry IPC
+    // bridge is unreliable in some WebView2 configurations (see CHANGELOG
+    // v0.6.7) — the HTTP POST path is the canonical route now.
+    let server_ctx = Arc::clone(&context);
+    let server_pmap = Arc::clone(&param_map);
+
     let server_thread = std::thread::spawn(move || {
         listener.set_nonblocking(true).ok();
         while !shutdown_server.is_shutdown() {
             if let Ok((mut stream, _)) = listener.accept() {
-                let mut buf = [0u8; 1024];
-                let _ = stream.read(&mut buf);
-                let body = latest_json_server.lock().clone();
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
-                    body.len(),
-                    body
-                );
-                let _ = stream.write_all(response.as_bytes());
+                let mut buf = [0u8; 4096];
+                let n = stream.read(&mut buf).unwrap_or(0);
+                let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
+
+                if req.starts_with("POST /ipc") {
+                    // Locate the body — everything past the first blank line.
+                    let body = req
+                        .find("\r\n\r\n")
+                        .map(|i| &req[i + 4..])
+                        .unwrap_or("");
+                    // Body may include trailing NULs from the uninitialised
+                    // buffer tail; trim them so the JSON parse doesn't reject.
+                    let trimmed = body.trim_end_matches('\0').trim();
+                    if !trimmed.is_empty() {
+                        handle_ipc(&server_ctx, &server_pmap, trimmed);
+                    }
+                    let response = "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nContent-Length: 2\r\n\r\n{}";
+                    let _ = stream.write_all(response.as_bytes());
+                } else if req.starts_with("OPTIONS") {
+                    // CORS preflight — answer permissively.
+                    let response = "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nContent-Length: 0\r\n\r\n";
+                    let _ = stream.write_all(response.as_bytes());
+                } else {
+                    // Default: GET — return the most recent packet JSON.
+                    let body = latest_json_server.lock().clone();
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    let _ = stream.write_all(response.as_bytes());
+                }
             }
             // Drain pending packets into the latest-json slot.
             if let Some(rx) = packet_rx.try_lock() {
@@ -534,11 +564,14 @@ fn spawn_windows(
         }
     });
 
-    // JS poll script.
+    // JS poll script + port export. window.__loudlab_packet_port is read by
+    // the webview's sendParam helper so it can POST to /ipc instead of
+    // depending on the wry IPC bridge.
     let poll_script = format!(
         r#"
 (function() {{
     var _port = {port};
+    window.__loudlab_packet_port = _port;
     function poll() {{
         fetch('http://127.0.0.1:' + _port)
             .then(function(r) {{ return r.json(); }})

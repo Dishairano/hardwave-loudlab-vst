@@ -1,5 +1,21 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.6 — Fix knob/slider interactions clamping to extremes (2026-05-21)
+
+Every knob and slider in the LoudLab webview behaved as if it only had two
+positions — minimum and maximum — because the IPC handler in `editor.rs`
+was passing the webview's plain-unit value (dB, Hz, percent) directly into
+`raw_set_parameter_normalized`, which expects a [0.0, 1.0] normalized
+value. Any plain value ≥ 1 was silently clamped to 1.0; anything ≤ 0 was
+clamped to 0. Result: dragging an EQ gain knob to +1.4 dB sent `1.4` →
+clamped to 1.0 → param jumped to its max. The webview showed the snap-back
+on the next packet, so users perceived "knobs that don't work."
+
+`handle_ipc` now routes plain values through `ParamPtr::preview_normalized`
+before calling the GUI context's set-normalized, which is the nih-plug
+contract. Knobs, sliders, and any future webview-driven param edits will
+land at the correct position the first time.
+
 ## v0.6.5 — Webview-visible metering (2026-05-21)
 
 The right-rail meters in the LoudLab webview (LUFS-S, LUFS-I, DR,

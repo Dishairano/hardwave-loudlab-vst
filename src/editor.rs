@@ -315,9 +315,17 @@ fn handle_ipc(
             let id = msg.get("id").and_then(|v| v.as_str()).unwrap_or("");
             let value = msg.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0);
             if let Some(ptr) = param_map.get(id) {
+                // The webview sends *plain* values (e.g. -1.4 dB for eq_low_gain,
+                // 28 Hz for eq_low_freq, -18.5 dB for comp_sub_thresh). Convert
+                // to the normalized [0.0, 1.0] form expected by
+                // raw_set_parameter_normalized via preview_normalized — that's
+                // the nih-plug way to apply a param's range mapping. Sending the
+                // plain value directly used to clamp every interaction to the
+                // [0, 1] cap, which is why every knob jumped to its maximum.
+                let normalized = unsafe { ptr.preview_normalized(value as f32) };
                 unsafe {
                     context.raw_begin_set_parameter(*ptr);
-                    context.raw_set_parameter_normalized(*ptr, value as f32);
+                    context.raw_set_parameter_normalized(*ptr, normalized);
                     context.raw_end_set_parameter(*ptr);
                 }
             }

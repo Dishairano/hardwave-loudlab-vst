@@ -152,6 +152,12 @@ struct HardwaveLoudLab {
     current_profile: GenreProfile,
 
     sample_rate: f32,
+
+    /// Maximum playback position the host has reported during this DAW
+    /// session, in samples. Drives the webview's "Track loaded · MM:SS"
+    /// header — pragmatic stand-in for project length without a Transport
+    /// loop range.
+    max_pos_samples: i64,
 }
 
 impl Default for HardwaveLoudLab {
@@ -182,6 +188,7 @@ impl Default for HardwaveLoudLab {
             samples_since_auto: 0,
             current_profile: GenreProfile::for_genre(Genre::Hardstyle),
             sample_rate: sr,
+            max_pos_samples: 0,
         }
     }
 }
@@ -255,7 +262,7 @@ impl Plugin for HardwaveLoudLab {
         &mut self,
         buffer: &mut Buffer,
         _aux: &mut AuxiliaryBuffers,
-        _context: &mut impl ProcessContext<Self>,
+        context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
         // Read ALL param values into locals so we can drop the borrow on self.params.
         let p = &self.params;
@@ -264,11 +271,23 @@ impl Plugin for HardwaveLoudLab {
         let output_gain_db = p.output_gain.value();
         let mix = p.mix.value();
         let auto_mode = p.auto_mode.value();
+        let master_enabled = p.master_enabled.value();
         let eq_enabled = p.eq_enabled.value();
         let comp_enabled = p.comp_enabled.value();
         let stereo_enabled = p.stereo_enabled.value();
         let limiter_enabled = p.limiter_enabled.value();
         let genre = p.genre.value();
+
+        // Track the maximum playback position ever observed so the webview
+        // header can show "Track loaded · MM:SS". The host's transport gives
+        // us per-block position; the maximum across blocks is the closest
+        // pragmatic stand-in for "track length" without a Transport loop range
+        // (some DAWs don't expose project length at all).
+        if let Some(pos) = context.transport().pos_samples() {
+            if pos > self.max_pos_samples {
+                self.max_pos_samples = pos;
+            }
+        }
 
         // Snapshot all param values for the editor packet.
         let pkt_snapshot = editor::snapshot_params(p);
@@ -297,6 +316,19 @@ impl Plugin for HardwaveLoudLab {
 
             let dry_l = *frame.get_mut(0).unwrap();
             let dry_r = *frame.get_mut(1).unwrap();
+
+            // Master bypass — the webview's header On/Off toggle. When
+            // disabled, the plugin is a passthrough: no gain, no DSP, no mix.
+            // Meters still run on the dry signal so the right rail keeps
+            // updating; otherwise toggling Off would freeze the LUFS readouts.
+            if !master_enabled {
+                self.input_meter.process(dry_l, dry_r);
+                self.output_meter.process(dry_l, dry_r);
+                self.output_stereo_meter.process(dry_l, dry_r);
+                // Leaving frame[0]/[1] unwritten passes the dry signal through
+                // unchanged — nih-plug iterates in place.
+                continue;
+            }
 
             // Input gain.
             let mut l = dry_l * input_gain;
@@ -406,6 +438,11 @@ impl Plugin for HardwaveLoudLab {
             packet.correlation = self.output_stereo_meter.correlation();
             packet.ms_ratio = self.output_stereo_meter.mid_fraction();
             packet.sample_rate = self.sample_rate;
+            packet.track_duration = if self.sample_rate > 0.0 {
+                self.max_pos_samples as f32 / self.sample_rate
+            } else {
+                0.0
+            };
             packet.spectrum = self.analyzer.get_spectrum();
 
             let _ = self.editor_packet_tx.try_send(packet);

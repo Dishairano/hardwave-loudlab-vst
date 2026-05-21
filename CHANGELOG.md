@@ -1,5 +1,26 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.8 — master bypass + track duration (2026-05-21)
+
+The header On/Off toggle in the webview previously sent `master_enabled`,
+but that param did not exist on the Rust side — so the toggle was a no-op.
+And the "Track loaded · MM:SS" readout always showed `00:00` because the
+plugin never read the host transport.
+
+### Added
+
+- `master_enabled: BoolParam` (default true). When false, the per-sample
+  loop in `process()` does nothing but feed the input/output/stereo meters
+  with the dry signal and `continue` — the buffer is iterated in place, so
+  leaving the samples unwritten passes them through unchanged. No gain, no
+  EQ, no comp, no stereo, no limiter, no mix. Now the header On/Off
+  actually bypasses the plugin.
+- `track_duration: f32` field on `MasterPacket`. Each block reads
+  `context.transport().pos_samples()` and tracks the maximum observed
+  position; the packet emits `max_pos_samples / sample_rate`. Pragmatic
+  stand-in for project length, since most DAWs don't expose total length
+  to a plugin.
+
 ## v0.6.7 — HTTP /ipc fallback for webview → host param edits (2026-05-21)
 
 Even after v0.6.6 fixed the normalization, knobs and sliders still didn't

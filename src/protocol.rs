@@ -90,6 +90,10 @@ pub struct MasterPacket {
     /// Engine sample rate, in Hz (e.g. 44100.0). The webview header shows
     /// "@ 44.1 kHz" from this.
     pub sample_rate: f32,
+    /// Furthest playback position the host has reported during this DAW
+    /// session, in seconds. Drives the webview header's "Track loaded · MM:SS"
+    /// readout. 0.0 until the host starts reporting transport position.
+    pub track_duration: f32,
     /// Spectrum magnitudes (dB), 1024 bins, optional (sent every few frames).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spectrum: Option<Vec<f32>>,

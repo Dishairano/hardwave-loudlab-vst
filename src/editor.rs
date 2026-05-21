@@ -139,6 +139,7 @@ fn build_param_map(params: &HardwaveMasterParams) -> HashMap<String, nih_plug::p
     map.insert("output_gain".into(), params.output_gain.as_ptr());
     map.insert("mix".into(), params.mix.as_ptr());
     map.insert("auto_mode".into(), params.auto_mode.as_ptr());
+    map.insert("master_enabled".into(), params.master_enabled.as_ptr());
 
     // EQ
     map.insert("eq_enabled".into(), params.eq_enabled.as_ptr());
@@ -262,6 +263,7 @@ pub fn snapshot_params(params: &HardwaveMasterParams) -> MasterPacket {
         correlation: 1.0,
         ms_ratio: 0.5,
         sample_rate: 44_100.0,
+        track_duration: 0.0,
         spectrum: None,
     }
 }

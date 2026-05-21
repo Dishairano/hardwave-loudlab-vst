@@ -48,6 +48,13 @@ pub struct HardwaveMasterParams {
     #[id = "auto_mode"]
     pub auto_mode: BoolParam,
 
+    /// Master bypass — when false, the audio passes through untouched (no
+    /// gain, no EQ, no comp, no stereo, no limiter, no mix). Meters keep
+    /// running so the right rail still updates. The header On/Off toggle in
+    /// the webview drives this.
+    #[id = "master_enabled"]
+    pub master_enabled: BoolParam,
+
     // ── EQ (4 bands) ───────────────────────────────────────────────────────
     #[id = "eq_enabled"]
     pub eq_enabled: BoolParam,
@@ -183,6 +190,7 @@ impl Default for HardwaveMasterParams {
                 .with_value_to_string(formatters::v2s_f32_percentage(0))
                 .with_string_to_value(formatters::s2v_f32_percentage()),
             auto_mode: BoolParam::new("Auto", true),
+            master_enabled: BoolParam::new("Master Enabled", true),
 
             // EQ
             eq_enabled: BoolParam::new("EQ On", true),

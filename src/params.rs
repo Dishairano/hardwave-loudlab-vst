@@ -152,6 +152,29 @@ pub struct HardwaveMasterParams {
     #[id = "stereo_mono_bass_freq"]
     pub stereo_mono_bass_freq: FloatParam,
 
+    // ── Saturation (Advanced mode) ─────────────────────────────────────────
+    #[id = "sat_enabled"]
+    pub sat_enabled: BoolParam,
+
+    #[id = "sat_drive"]
+    pub sat_drive: FloatParam,
+
+    #[id = "sat_mix"]
+    pub sat_mix: FloatParam,
+
+    // ── Per-band makeup gain (Advanced MBC) ────────────────────────────────
+    #[id = "comp_sub_makeup"]
+    pub comp_sub_makeup: FloatParam,
+
+    #[id = "comp_lm_makeup"]
+    pub comp_lm_makeup: FloatParam,
+
+    #[id = "comp_hm_makeup"]
+    pub comp_hm_makeup: FloatParam,
+
+    #[id = "comp_hi_makeup"]
+    pub comp_hi_makeup: FloatParam,
+
     // ── Limiter ────────────────────────────────────────────────────────────
     #[id = "limiter_enabled"]
     pub limiter_enabled: BoolParam,
@@ -322,6 +345,29 @@ impl Default for HardwaveMasterParams {
                 FloatRange::Skewed { min: 20.0, max: 300.0, factor: FloatRange::skew_factor(-1.5) },
             )
             .with_unit(" Hz"),
+
+            // Saturation (Advanced mode glue)
+            sat_enabled: BoolParam::new("Saturation On", false),
+            sat_drive: FloatParam::new(
+                "Saturation Drive",
+                0.0,
+                FloatRange::Linear { min: 0.0, max: 24.0 },
+            )
+            .with_unit(" dB"),
+            sat_mix: FloatParam::new(
+                "Saturation Mix",
+                1.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            ),
+
+            // Per-band makeup gain (Advanced MBC). Default 0 dB = no
+            // makeup, matches the existing behaviour exactly so this
+            // migration doesn't audibly change anything on existing
+            // saved projects.
+            comp_sub_makeup: FloatParam::new("Sub Makeup",      0.0, FloatRange::Linear { min: -12.0, max: 12.0 }).with_unit(" dB"),
+            comp_lm_makeup:  FloatParam::new("Low-mid Makeup",  0.0, FloatRange::Linear { min: -12.0, max: 12.0 }).with_unit(" dB"),
+            comp_hm_makeup:  FloatParam::new("High-mid Makeup", 0.0, FloatRange::Linear { min: -12.0, max: 12.0 }).with_unit(" dB"),
+            comp_hi_makeup:  FloatParam::new("Air Makeup",      0.0, FloatRange::Linear { min: -12.0, max: 12.0 }).with_unit(" dB"),
 
             // Limiter
             limiter_enabled: BoolParam::new("Limiter On", true),

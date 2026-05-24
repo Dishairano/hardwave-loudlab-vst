@@ -188,6 +188,17 @@ fn build_param_map(params: &HardwaveMasterParams) -> HashMap<String, nih_plug::p
     map.insert("limiter_enabled".into(), params.limiter_enabled.as_ptr());
     map.insert("limiter_ceiling".into(), params.limiter_ceiling.as_ptr());
 
+    // Saturation (Advanced mode)
+    map.insert("sat_enabled".into(), params.sat_enabled.as_ptr());
+    map.insert("sat_drive".into(), params.sat_drive.as_ptr());
+    map.insert("sat_mix".into(), params.sat_mix.as_ptr());
+
+    // Per-band makeup gain (Advanced MBC)
+    map.insert("comp_sub_makeup".into(), params.comp_sub_makeup.as_ptr());
+    map.insert("comp_lm_makeup".into(), params.comp_lm_makeup.as_ptr());
+    map.insert("comp_hm_makeup".into(), params.comp_hm_makeup.as_ptr());
+    map.insert("comp_hi_makeup".into(), params.comp_hi_makeup.as_ptr());
+
     map
 }
 
@@ -253,6 +264,15 @@ pub fn snapshot_params(params: &HardwaveMasterParams) -> MasterPacket {
 
         limiter_enabled: params.limiter_enabled.value(),
         limiter_ceiling: params.limiter_ceiling.value(),
+
+        sat_enabled: params.sat_enabled.value(),
+        sat_drive: params.sat_drive.value(),
+        sat_mix: params.sat_mix.value(),
+
+        comp_sub_makeup: params.comp_sub_makeup.value(),
+        comp_lm_makeup: params.comp_lm_makeup.value(),
+        comp_hm_makeup: params.comp_hm_makeup.value(),
+        comp_hi_makeup: params.comp_hi_makeup.value(),
 
         input_lufs: -120.0,
         output_lufs: -120.0,

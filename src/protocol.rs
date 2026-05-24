@@ -64,6 +64,17 @@ pub struct MasterPacket {
     pub limiter_enabled: bool,
     pub limiter_ceiling: f32,
 
+    // ── Saturation (Advanced mode) ───────────────────────────────────────────
+    pub sat_enabled: bool,
+    pub sat_drive: f32,
+    pub sat_mix: f32,
+
+    // ── Per-band makeup gain (Advanced MBC) ──────────────────────────────────
+    pub comp_sub_makeup: f32,
+    pub comp_lm_makeup: f32,
+    pub comp_hm_makeup: f32,
+    pub comp_hi_makeup: f32,
+
     // ── Metering (read-only, pushed from DSP) ────────────────────────────────
     /// Momentary LUFS (400 ms K-weighted) of the input bus.
     pub input_lufs: f32,

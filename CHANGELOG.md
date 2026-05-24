@@ -1,5 +1,12 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.10 — Saturation + per-band makeup gain (2026-05-24)
+
+- Added a tanh saturation stage between the multiband compressor and the stereo width module. Three new params: `sat_enabled`, `sat_drive` (0–24 dB), `sat_mix` (0–1). Off by default — existing projects sound identical. DC-blocked, drive-normalised so unity drive = unity gain.
+- Per-band makeup gain (`comp_sub_makeup`, `comp_lm_makeup`, `comp_hm_makeup`, `comp_hi_makeup`) is now exposed as a Rust param and surfaces in the packet. The DSP-side `makeup_db` field has been there since v0.6.0; it just wasn't reachable.
+- Unlocks the webview's Advanced mode: every control there now maps to a real Rust param. Saturation, per-band makeup, plus the existing thresh/ratio/atk/rel/freq/Q stack. No more decorative knobs.
+- No breaking changes — every new param defaults to "off" or "0 dB" so v0.6.9 saved presets load identically.
+
 ## v0.6.9 — Step 1 Diagnose wired end-to-end (2026-05-21)
 
 The Learn-mode "Diagnose" step previously rendered against fake numbers —

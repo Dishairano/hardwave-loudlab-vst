@@ -339,6 +339,17 @@ impl MultibandCompressor {
         self.comp[band].set_params(params);
     }
 
+    /// Set only the makeup-gain field of a band's params, leaving threshold,
+    /// ratio, attack, release untouched. Called per-block by the slow-path
+    /// param applier in HardwaveLoudLab so manual makeup adjustments don't
+    /// clobber the auto-engine's per-block threshold/ratio/atk/rel writes.
+    pub fn set_band_makeup(&mut self, band: usize, makeup_db: f32) {
+        debug_assert!(band < 4);
+        let mut params = self.comp[band].params;
+        params.makeup_db = makeup_db;
+        self.comp[band].set_params(params);
+    }
+
     /// Get current parameters for a band.
     pub fn get_band_params(&self, band: usize) -> BandCompParams {
         self.comp[band].params

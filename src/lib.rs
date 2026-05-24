@@ -128,6 +128,7 @@ struct HardwaveLoudLab {
     eq_l: ParametricEq,
     eq_r: ParametricEq,
     compressor: MultibandCompressor,
+    saturation: dsp::Saturation,
     stereo: StereoProcessor,
     limiter: BrickwallLimiter,
 
@@ -193,6 +194,7 @@ impl Default for HardwaveLoudLab {
             eq_l: ParametricEq::new(sr),
             eq_r: ParametricEq::new(sr),
             compressor: MultibandCompressor::new(sr),
+            saturation: dsp::Saturation::new(sr),
             stereo: StereoProcessor::new(sr),
             limiter: BrickwallLimiter::new(sr),
             analyzer: SpectrumAnalyzer::new(sr),
@@ -256,6 +258,7 @@ impl Plugin for HardwaveLoudLab {
         self.eq_l.set_sample_rate(sr);
         self.eq_r.set_sample_rate(sr);
         self.compressor.set_sample_rate(sr);
+        self.saturation.set_sample_rate(sr);
         self.stereo.set_sample_rate(sr);
         self.limiter.set_sample_rate(sr);
         self.analyzer.set_sample_rate(sr);
@@ -270,6 +273,7 @@ impl Plugin for HardwaveLoudLab {
         self.eq_l.reset();
         self.eq_r.reset();
         self.compressor.reset();
+        self.saturation.reset();
         self.stereo.reset();
         self.limiter.reset();
         self.analyzer.reset();
@@ -298,6 +302,9 @@ impl Plugin for HardwaveLoudLab {
         let comp_enabled = p.comp_enabled.value();
         let stereo_enabled = p.stereo_enabled.value();
         let limiter_enabled = p.limiter_enabled.value();
+        let sat_enabled = p.sat_enabled.value();
+        let sat_drive_db = p.sat_drive.value();
+        let sat_mix = p.sat_mix.value();
         let genre = p.genre.value();
 
         // Track the maximum playback position ever observed so the webview
@@ -419,6 +426,16 @@ impl Plugin for HardwaveLoudLab {
                 let (cl, cr) = self.compressor.process(l, r);
                 l = cl;
                 r = cr;
+            }
+
+            // Saturation — placed post-compressor so it sees a level-stable
+            // input, and pre-stereo so width processing doesn't fight the
+            // harmonic content the saturator just generated. Off by default;
+            // when disabled, returns input unchanged in one branch.
+            if sat_enabled {
+                let (sl, sr_out) = self.saturation.process(l, r);
+                l = sl;
+                r = sr_out;
             }
 
             // Stereo processor.
@@ -586,6 +603,35 @@ impl HardwaveLoudLab {
         self.stereo.bass_mono = p.stereo_mono_bass.value();
         self.stereo.mono_bass_freq = p.stereo_mono_bass_freq.value();
         self.stereo.update_filters();
+
+        // Saturation. set_params is allocation-free; Saturation copies the
+        // struct in. Reading these in the slow-path keeps the audio loop free
+        // of per-sample param.value() calls.
+        self.saturation.set_params(dsp::SaturationParams {
+            drive_db: p.sat_drive.value(),
+            mix: p.sat_mix.value(),
+            enabled: p.sat_enabled.value(),
+        });
+
+        // Per-band makeup gain. Plumbing the existing BandCompParams field
+        // that has been dormant in compressor.rs — pulling the four params
+        // straight into the compressor's per-band state. Allocation-free.
+        // Note: ratios + thresholds + attack + release are kept where they
+        // already are (auto-engine handles them when auto_mode=true; manual
+        // changes via handle_ipc set them directly). Makeup gain has no
+        // matching auto-engine path; it's manual-only, which is exactly the
+        // Advanced-mode use case we're enabling.
+        {
+            let comp_makeups = [
+                p.comp_sub_makeup.value(),
+                p.comp_lm_makeup.value(),
+                p.comp_hm_makeup.value(),
+                p.comp_hi_makeup.value(),
+            ];
+            for (i, mk) in comp_makeups.iter().enumerate() {
+                self.compressor.set_band_makeup(i, *mk);
+            }
+        }
 
         // Limiter.
         self.limiter.set_ceiling(p.limiter_ceiling.value());

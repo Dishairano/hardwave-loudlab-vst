@@ -167,7 +167,12 @@ jobs:
           tag_name: ${{ steps.version.outputs.version }}
           name: Hardwave LoudLab ${{ steps.version.outputs.version }}
           draft: false
-          prerelease: true
+          # Clean tags (v0.7.0, v1.0.0) publish as a proper stable "Latest"
+          # release; suffixed tags (v0.7.0-rc1, -beta) stay pre-release and not
+          # latest. Mirrors the '-' gating the DB/Discord steps already use, so
+          # the public launch tag isn't stuck with a "Pre-release" badge.
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          make_latest: ${{ !contains(steps.version.outputs.version, '-') }}
           generate_release_notes: true
           files: |
             artifacts/hardwave-loudlab-linux-x64/*.zip

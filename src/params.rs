@@ -213,7 +213,12 @@ impl Default for HardwaveMasterParams {
                 .with_value_to_string(formatters::v2s_f32_percentage(0))
                 .with_string_to_value(formatters::s2v_f32_percentage()),
             auto_mode: BoolParam::new("Auto", true),
-            master_enabled: BoolParam::new("Master Enabled", true),
+            // Default BYPASSED: a fresh instance must be a clean passthrough
+            // until the user picks what they're mastering (the webview engages
+            // it on track-type selection). Stops an unconfigured instance from
+            // processing audio with defaults — the founders "it mangled my
+            // track on load" feedback. Saved projects keep their stored value.
+            master_enabled: BoolParam::new("Master Enabled", false),
 
             // EQ
             eq_enabled: BoolParam::new("EQ On", true),

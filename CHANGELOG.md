@@ -1,5 +1,10 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.11 — Bypass until configured + mono-bass default off (2026-05-25)
+
+- LoudLab now starts **bypassed** on a fresh instance — the engine is a clean passthrough until you choose what you're mastering (Master / Drum / Instrument). No more processing your track with default settings before you've set it up.
+- **Mono Bass is now off by default.** Summing the sub to mono by default was thinning out the low end; it's still there as an opt-in toggle, but the default chain now leaves your sub untouched.
+
 ## v0.6.10 — Saturation + per-band makeup gain (2026-05-24)
 
 - Added a tanh saturation stage between the multiband compressor and the stereo width module. Three new params: `sat_enabled`, `sat_drive` (0–24 dB), `sat_mix` (0–1). Off by default — existing projects sound identical. DC-blocked, drive-normalised so unity drive = unity gain.

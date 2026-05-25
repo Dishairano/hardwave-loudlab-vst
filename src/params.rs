@@ -343,7 +343,11 @@ impl Default for HardwaveMasterParams {
                 1.0,
                 FloatRange::Linear { min: 0.0, max: 2.0 },
             ),
-            stereo_mono_bass: BoolParam::new("Mono Bass", true),
+            // Default OFF: mono-summing the sub by default (via the gentle
+            // 1st-order crossover) phase-cancelled low end and gutted the sub
+            // — the founders "bass almost non-existent" report. Stays an
+            // opt-in feature; the default chain leaves the low end untouched.
+            stereo_mono_bass: BoolParam::new("Mono Bass", false),
             stereo_mono_bass_freq: FloatParam::new(
                 "Mono Bass Freq",
                 120.0,

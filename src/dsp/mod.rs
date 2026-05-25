@@ -3,6 +3,7 @@ pub mod compressor;
 pub mod eq;
 pub mod limiter;
 pub mod metering;
+pub mod oversample;
 pub mod saturation;
 pub mod stereo;
 

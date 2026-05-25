@@ -30,6 +30,11 @@ pub struct BrickwallLimiter {
     // Smoothing coefficients.
     attack_coeff: f32,
     release_coeff: f32,
+
+    // 2× oversampling for the tanh soft-clip, per channel — kills the high-end
+    // aliasing that made hot/bright material sound gritty ("192 kbps" highs).
+    clip_os_l: super::oversample::Oversampler2x,
+    clip_os_r: super::oversample::Oversampler2x,
 }
 
 impl BrickwallLimiter {
@@ -46,6 +51,8 @@ impl BrickwallLimiter {
             env: 0.0,
             attack_coeff: 0.0,
             release_coeff: 0.0,
+            clip_os_l: super::oversample::Oversampler2x::new(),
+            clip_os_r: super::oversample::Oversampler2x::new(),
         };
         limiter.recalc();
         limiter
@@ -66,6 +73,8 @@ impl BrickwallLimiter {
         self.delay_r.iter_mut().for_each(|s| *s = 0.0);
         self.delay_pos = 0;
         self.env = 0.0;
+        self.clip_os_l.reset();
+        self.clip_os_r.reset();
     }
 
     /// Call after changing `ceiling_db`.
@@ -86,9 +95,9 @@ impl BrickwallLimiter {
     /// Process a stereo sample pair. Returns (left, right).
     #[inline]
     pub fn process(&mut self, left: f32, right: f32) -> (f32, f32) {
-        // --- Stage 1: Soft clip (tanh) ---
-        let soft_l = soft_clip(left);
-        let soft_r = soft_clip(right);
+        // --- Stage 1: Soft clip (tanh), oversampled 2× to avoid aliasing ---
+        let soft_l = self.clip_os_l.process(left, soft_clip);
+        let soft_r = self.clip_os_r.process(right, soft_clip);
 
         // --- Stage 2: Compute desired gain from the *current* (pre-delay)
         //     sample so the gain change is applied to the *delayed* sample. ---

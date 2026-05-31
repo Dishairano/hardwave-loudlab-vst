@@ -1,5 +1,10 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.12 — Cleaner highs at loud levels (2026-05-31)
+
+- **Anti-aliasing on the limiter's soft-clip.** Hot, bright material was developing a gritty/digital edge on the top — the soft-clip's harmonics were folding back into the audible range. The clip now runs internally at 2× the sample rate and is band-limited on the way out, so a hot screech or a slammed master stays clean instead of getting that "low-bitrate" feel.
+- No new controls, no preset changes — the chain sounds the same on quiet material and noticeably cleaner the harder you push it. Adds a tiny fixed latency (a handful of samples).
+
 ## v0.6.11 — Bypass until configured + mono-bass default off (2026-05-25)
 
 - LoudLab now starts **bypassed** on a fresh instance — the engine is a clean passthrough until you choose what you're mastering (Master / Drum / Instrument). No more processing your track with default settings before you've set it up.

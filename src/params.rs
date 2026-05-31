@@ -292,7 +292,12 @@ impl Default for HardwaveMasterParams {
             ),
 
             // Multiband Compressor
-            comp_enabled: BoolParam::new("Comp On", true),
+            // Default OFF: with thresh -20 dB / ratio 2 on the high band and a
+            // crossover at 8 kHz, this was perceived as "an 8 kHz cut" on
+            // hot material — even after the master_enabled gate (a configured
+            // instance still had comp on by default). Stays an opt-in feature;
+            // the default chain leaves the spectrum untouched.
+            comp_enabled: BoolParam::new("Comp On", false),
             comp_xover_low: FloatParam::new(
                 "Xover Low",
                 120.0,

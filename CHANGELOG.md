@@ -1,5 +1,10 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.13 — No more 8 kHz cut + cleaner saturation (2026-05-31)
+
+- **Multiband compressor is now off by default.** With the high band's crossover at 8 kHz and a default threshold/ratio that bit into hot material, an unconfigured chain was reading as "an 8 kHz cut" on bright tracks. It's still there as an opt-in — the default chain now leaves the spectrum untouched.
+- **Saturation also runs alias-free** (when you opt it in). Same 2× anti-aliasing wrapper as the limiter soft-clip got in v0.6.12, so pushing drive on hot/bright material stays clean instead of developing the gritty top end.
+
 ## v0.6.12 — Cleaner highs at loud levels (2026-05-31)
 
 - **Anti-aliasing on the limiter's soft-clip.** Hot, bright material was developing a gritty/digital edge on the top — the soft-clip's harmonics were folding back into the audible range. The clip now runs internally at 2× the sample rate and is band-limited on the way out, so a hot screech or a slammed master stays clean instead of getting that "low-bitrate" feel.

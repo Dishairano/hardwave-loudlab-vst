@@ -12,9 +12,9 @@
 //!     "right" across more genres than any of the named characters at low
 //!     drives. Multi-character variants land in Sprint 4 once we have ear-
 //!     time to tune them.
-//!   - Oversampled (no 4× upsampling). At master-bus drives (<= 12 dB) the
-//!     audible aliasing is below most monitoring noise floors; oversampling
-//!     adds latency + CPU we don't need yet. Sprint 4.
+//!   - 2× oversampled around the tanh (Oversampler2x; same anti-aliasing
+//!     fix as the limiter's soft-clip). Hot/bright material previously
+//!     aliased into the top end — fixed in v0.6.13.
 //!   - Per-band. One-knob master-bus saturation.
 //!
 //! Design constraints:
@@ -86,6 +86,10 @@ pub struct Saturation {
     params: SaturationParams,
     dc_blocker_l: DcBlocker,
     dc_blocker_r: DcBlocker,
+    // 2× oversampling around the tanh — same anti-aliasing fix as the limiter,
+    // matters once the user opts in to saturation on hot/bright material.
+    os_l: super::oversample::Oversampler2x,
+    os_r: super::oversample::Oversampler2x,
 }
 
 impl Saturation {
@@ -94,6 +98,8 @@ impl Saturation {
             params: SaturationParams::default(),
             dc_blocker_l: DcBlocker::new(sample_rate),
             dc_blocker_r: DcBlocker::new(sample_rate),
+            os_l: super::oversample::Oversampler2x::new(),
+            os_r: super::oversample::Oversampler2x::new(),
         }
     }
 
@@ -109,6 +115,8 @@ impl Saturation {
     pub fn reset(&mut self) {
         self.dc_blocker_l.reset();
         self.dc_blocker_r.reset();
+        self.os_l.reset();
+        self.os_r.reset();
     }
 
     #[inline]
@@ -130,8 +138,10 @@ impl Saturation {
         // crossfade. Clamp to a small epsilon so drive_db → 0 doesn't NaN.
         let norm = drive_lin.tanh().max(1e-6);
 
-        let mut l_wet = (left * drive_lin).tanh() / norm;
-        let mut r_wet = (right * drive_lin).tanh() / norm;
+        // Process through 2× oversampler — closure captures drive_lin & norm.
+        let f = |x: f32| (x * drive_lin).tanh() / norm;
+        let mut l_wet = self.os_l.process(left, f);
+        let mut r_wet = self.os_r.process(right, f);
 
         // DC blocker on the wet branch only — the dry branch is already DC-
         // free (assuming the input is).

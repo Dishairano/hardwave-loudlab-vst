@@ -60,7 +60,11 @@ impl StereoProcessor {
             sample_rate,
             width: 1.0,
             mono_bass_freq: 200.0,
-            bass_mono: true,
+            // Must match the `stereo_mono_bass` param default (false). It
+            // used to be `true`, and since the auto path never synced the
+            // param, Auto mode applied mono-bass the param said was off —
+            // the v0.6.11 "bass almost non-existent" bug, resurrected.
+            bass_mono: false,
             lp_mid: OnePole::new(),
             lp_side: OnePole::new(),
         };

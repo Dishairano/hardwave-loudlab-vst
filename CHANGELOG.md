@@ -1,5 +1,14 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.14 — Auto-mode bass fix & stability (2026-07-08)
+
+- Fixed Auto mode silently mono-ing your bass: the mono-bass switch now works in Auto mode too, and defaults to off — low end passes through in stereo unless you turn it on. (This finishes the fix that started in v0.6.11.)
+- The spectrum analyzer no longer goes blank while Auto mode is on.
+- The plugin now reports its processing delay to the DAW, so tracks stay perfectly time-aligned (proper delay compensation).
+- Crash reporting no longer stalls audio: reports upload in the background and repeated identical crashes are sent at most once a minute.
+- License metadata aligned with the GPL-3.0 relicense.
+
+
 ## v0.6.13 — No more 8 kHz cut + cleaner saturation (2026-05-31)
 
 - **Multiband compressor is now off by default.** With the high band's crossover at 8 kHz and a default threshold/ratio that bit into hot material, an unconfigured chain was reading as "an 8 kHz cut" on bright tracks. It's still there as an opt-in — the default chain now leaves the spectrum untouched.

@@ -74,6 +74,11 @@ fn install_crash_handler() {
                     .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
                     .unwrap_or_else(|| "unknown location".to_string());
                 let bt = std::backtrace::Backtrace::force_capture();
+                // Stash for the telemetry hook (runs after this one) so it
+                // doesn't capture a second backtrace on the panicking thread.
+                if let Ok(mut g) = crash_reporter::LAST_BACKTRACE.lock() {
+                    *g = Some(bt.to_string());
+                }
 
                 let _ = writeln!(f, "========================================");
                 let _ = writeln!(f, "HARDWAVE LOUDLAB CRASH REPORT");
@@ -250,10 +255,16 @@ impl Plugin for HardwaveLoudLab {
         &mut self,
         _audio_io_layout: &AudioIOLayout,
         buffer_config: &BufferConfig,
-        _context: &mut impl InitContext<Self>,
+        context: &mut impl InitContext<Self>,
     ) -> bool {
         let sr = buffer_config.sample_rate;
         self.sample_rate = sr;
+
+        // Report plugin delay for host PDC: the limiter's lookahead buffer
+        // plus the oversampler's linear-phase group delay.
+        let latency = (dsp::limiter::LOOKAHEAD_MS * 0.001 * sr) as u32
+            + dsp::oversample::LATENCY_SAMPLES as u32;
+        context.set_latency_samples(latency);
 
         self.eq_l.set_sample_rate(sr);
         self.eq_r.set_sample_rate(sr);
@@ -389,9 +400,9 @@ impl Plugin for HardwaveLoudLab {
                 self.samples_since_auto += 1;
                 if self.samples_since_auto >= auto_interval {
                     self.samples_since_auto = 0;
-                    if let Some(spectrum) = self.analyzer.get_spectrum() {
+                    if self.analyzer.take_frame_ready() {
                         let result = self.auto_engine.compute(
-                            &spectrum,
+                            self.analyzer.spectrum_ref(),
                             self.sample_rate,
                             &self.current_profile,
                             intensity,
@@ -409,6 +420,10 @@ impl Plugin for HardwaveLoudLab {
                         );
                         self.stereo.width = result.stereo_width;
                         self.stereo.mono_bass_freq = result.mono_bass_freq;
+                        // The mono-bass on/off switch is user intent, not an
+                        // auto-engine output — honor the param in Auto mode
+                        // exactly like apply_manual_params does.
+                        self.stereo.bass_mono = self.params.stereo_mono_bass.value();
                         self.stereo.update_filters();
                         self.limiter.set_ceiling(result.limiter_ceiling_db);
                     }
@@ -508,7 +523,9 @@ impl Plugin for HardwaveLoudLab {
                 self.lufs_max_momentary = momentary;
             }
             packet.lufs_max_momentary = self.lufs_max_momentary;
-            packet.spectrum = self.analyzer.get_spectrum();
+            // Snapshot, not consume: in Auto mode the auto engine takes the
+            // fresh-frame flag first, which used to blank the UI spectrum.
+            packet.spectrum = self.analyzer.spectrum_snapshot();
 
             let _ = self.editor_packet_tx.try_send(packet);
         }

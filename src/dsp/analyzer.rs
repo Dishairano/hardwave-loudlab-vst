@@ -12,6 +12,8 @@ pub struct SpectrumAnalyzer {
     fft_input: Vec<Complex<f32>>,
     magnitude_db: Vec<f32>,
     frame_ready: bool,
+    /// True once at least one FFT frame has ever been computed.
+    any_frame_computed: bool,
     planner_cache: FftPlannerCache,
 }
 
@@ -36,6 +38,7 @@ impl SpectrumAnalyzer {
             fft_input: vec![Complex::new(0.0, 0.0); FFT_SIZE],
             magnitude_db: vec![-120.0; FFT_SIZE / 2],
             frame_ready: false,
+            any_frame_computed: false,
             planner_cache: FftPlannerCache {
                 fft,
                 scratch: vec![Complex::new(0.0, 0.0); scratch_len],
@@ -73,6 +76,7 @@ impl SpectrumAnalyzer {
             self.write_pos = 0;
             self.compute_fft();
             self.frame_ready = true;
+        self.any_frame_computed = true;
         }
     }
 
@@ -107,6 +111,31 @@ impl SpectrumAnalyzer {
     pub fn get_spectrum(&mut self) -> Option<Vec<f32>> {
         if self.frame_ready {
             self.frame_ready = false;
+            Some(self.magnitude_db.clone())
+        } else {
+            None
+        }
+    }
+
+    /// Consume the fresh-frame flag without cloning. Pair with
+    /// `spectrum_ref()` to feed the auto engine allocation-free on the
+    /// audio thread.
+    pub fn take_frame_ready(&mut self) -> bool {
+        let ready = self.frame_ready;
+        self.frame_ready = false;
+        ready
+    }
+
+    /// Borrow the latest magnitudes (valid after the first frame).
+    pub fn spectrum_ref(&self) -> &[f32] {
+        &self.magnitude_db
+    }
+
+    /// Clone the latest magnitudes regardless of freshness — for the
+    /// editor packet, which previously went blank in Auto mode because
+    /// the auto engine consumed the fresh-frame flag first.
+    pub fn spectrum_snapshot(&self) -> Option<Vec<f32>> {
+        if self.any_frame_computed {
             Some(self.magnitude_db.clone())
         } else {
             None

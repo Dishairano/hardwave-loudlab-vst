@@ -7,7 +7,7 @@
 ///   3. Gain reduction with attack/release smoothing.
 ///   4. Hard clip at ceiling as a safety net.
 
-const LOOKAHEAD_MS: f32 = 5.0;
+pub const LOOKAHEAD_MS: f32 = 5.0;
 
 pub struct BrickwallLimiter {
     sample_rate: f32,

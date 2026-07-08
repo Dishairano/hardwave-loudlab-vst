@@ -331,3 +331,47 @@ jobs:
             "$DISCORD_WEBHOOK_URL" >/dev/null
           echo "Discord changelog posted for ${VERSION}"
 
+  # ── Suite beta channel ──────────────────────────────────────────────────
+  # Every tagged build (stable or -suffixed prerelease) is auto-published to
+  # the Suite's subscriber beta manifest. The server row supersedes the
+  # previous build and expires after 21 days; Pro subscribers with the Beta
+  # update channel enabled see it under Plug-ins → Beta builds.
+  publish-beta:
+    needs: [release]
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to Suite beta manifest
+        env:
+          INTERNAL_SECRET: ${{ secrets.HW_INTERNAL_API_SECRET }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/hardwave-loudlab-windows-x64.zip"
+
+          # The release job just uploaded this asset; fetch it to hash it.
+          curl -sfL --retry 5 --retry-delay 10 --retry-all-errors -o artefact.zip "$URL"
+          SHA256=$(sha256sum artefact.zip | cut -d' ' -f1)
+          SIZE=$(stat -c%s artefact.zip)
+          rm -f artefact.zip
+
+          BODY=$(printf '{"plugin_slug":"loudlab","version":"%s","artefact_url":"%s","artefact_sha256":"%s","artefact_size":%s,"changelog":"See the release notes for %s."}' "$VERSION" "$URL" "$SHA256" "$SIZE" "$VERSION")
+          HTTP=$(curl -s -o resp.json -w "%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-internal-secret: ${INTERNAL_SECRET}" \
+            -d "$BODY" \
+            https://hardwavestudios.com/api/beta/publish)
+          cat resp.json
+          # 409 = this version already published (idempotent re-run) — fine.
+          if [ "$HTTP" != "200" ] && [ "$HTTP" != "409" ]; then
+            echo "beta publish failed with HTTP $HTTP" >&2
+            exit 1
+          fi

@@ -129,6 +129,14 @@ fn load_or_create_machine_id() -> String {
     "0".repeat(64)
 }
 
+/// Stable per-machine identifier, reused for trial machine-binding. Exposed to
+/// the plugin webview as `window.__HARDWAVE_MACHINE_ID` so `/api/trial/start`
+/// can enforce one free trial per machine regardless of account. Same value the
+/// crash reporter already uses, so a machine reads consistently across features.
+pub fn machine_id() -> String {
+    load_or_create_machine_id()
+}
+
 fn machine_id_path() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(std::env::temp_dir)

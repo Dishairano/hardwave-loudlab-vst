@@ -295,11 +295,15 @@ fn ipc_init_script(params: &HardwaveMasterParams) -> String {
     let snapshot = snapshot_params(params);
     let initial_json = serde_json::to_string(&snapshot).unwrap_or_else(|_| "null".into());
     let version = env!("CARGO_PKG_VERSION");
+    // Stable per-machine id (64-hex) exposed to the webview so trial/start can
+    // bind one free trial per machine. Hex-only, safe to inline unescaped.
+    let machine_id = crate::crash_reporter::machine_id();
 
     format!(
         r#"
 window.__HARDWAVE_VST = true;
 window.__HARDWAVE_VST_VERSION = '{version}';
+window.__HARDWAVE_MACHINE_ID = '{machine_id}';
 window.__hardwave = {{
     postMessage: function(msg) {{
         window.ipc.postMessage(JSON.stringify(msg));

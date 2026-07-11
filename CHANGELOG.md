@@ -1,5 +1,10 @@
 # Hardwave LoudLab — Changelog
 
+## v0.6.15 — Fairer free trials (2026-07-11)
+
+- Free trials are now one per machine. Spinning up a new account no longer resets the 14-day trial. If you've bought LoudLab or you're on a Hardwave plan, nothing changes — full access continues exactly as before.
+
+
 ## v0.6.14 — Auto-mode bass fix & stability (2026-07-08)
 
 - Fixed Auto mode silently mono-ing your bass: the mono-bass switch now works in Auto mode too, and defaults to off — low end passes through in stereo unless you turn it on. (This finishes the fix that started in v0.6.11.)

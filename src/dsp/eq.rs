@@ -181,3 +181,64 @@ impl ParametricEq {
         y
     }
 }
+
+/// Dedicated "Sub" control — a broad, low peaking bell (~45 Hz, wide Q) a
+/// producer rides to push or pull the sub. Stereo (independent L/R state).
+/// Runs as a user macro on top of everything else, independent of the 4-band
+/// auto EQ, so it never fights the genre target. 0 dB = pass-through.
+pub struct SubShelf {
+    coeffs: BiquadCoeffs,
+    state_l: BiquadState,
+    state_r: BiquadState,
+    sample_rate: f32,
+}
+
+impl SubShelf {
+    const FREQ: f32 = 45.0;
+    const Q: f32 = 0.6;
+
+    pub fn new(sample_rate: f32) -> Self {
+        Self {
+            coeffs: BiquadCoeffs::unity(),
+            state_l: BiquadState::new(),
+            state_r: BiquadState::new(),
+            sample_rate,
+        }
+    }
+
+    pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
+    }
+
+    /// Set the sub gain in dB. 0 dB collapses to unity (true pass-through).
+    pub fn set_gain(&mut self, gain_db: f32) {
+        self.coeffs = if gain_db.abs() > 0.001 {
+            BiquadCoeffs::peaking(Self::FREQ, gain_db, Self::Q, self.sample_rate)
+        } else {
+            BiquadCoeffs::unity()
+        };
+    }
+
+    pub fn reset(&mut self) {
+        self.state_l.reset();
+        self.state_r.reset();
+    }
+
+    #[inline(always)]
+    pub fn process(&mut self, l: f32, r: f32) -> (f32, f32) {
+        (
+            Self::run(&self.coeffs, &mut self.state_l, l),
+            Self::run(&self.coeffs, &mut self.state_r, r),
+        )
+    }
+
+    #[inline(always)]
+    fn run(c: &BiquadCoeffs, s: &mut BiquadState, x: f32) -> f32 {
+        let y = c.b0 * x + c.b1 * s.x1 + c.b2 * s.x2 - c.a1 * s.y1 - c.a2 * s.y2;
+        s.x2 = s.x1;
+        s.x1 = x;
+        s.y2 = s.y1;
+        s.y1 = y;
+        y
+    }
+}

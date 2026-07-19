@@ -9,6 +9,7 @@ pub struct MasterPacket {
     pub genre: String,
     pub intensity: f32,
     pub input_gain: f32,
+    pub sub_gain: f32,
     pub output_gain: f32,
     pub mix: f32,
     pub auto_mode: bool,

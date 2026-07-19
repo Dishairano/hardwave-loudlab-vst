@@ -120,7 +120,7 @@ use dsp::eq::EqBandParams;
 use dsp::compressor::BandCompParams;
 use dsp::{
     BrickwallLimiter, LufsMeter, MultibandCompressor, ParametricEq, SpectrumAnalyzer,
-    StereoMeter, StereoProcessor,
+    StereoMeter, StereoProcessor, SubShelf,
 };
 use params::{Genre, HardwaveMasterParams};
 use profiles::GenreProfile;
@@ -132,6 +132,7 @@ struct HardwaveLoudLab {
     // DSP modules — EQ is applied independently per channel.
     eq_l: ParametricEq,
     eq_r: ParametricEq,
+    sub_filter: SubShelf,
     compressor: MultibandCompressor,
     saturation: dsp::Saturation,
     stereo: StereoProcessor,
@@ -200,6 +201,7 @@ impl Default for HardwaveLoudLab {
             params: Arc::new(HardwaveMasterParams::default()),
             eq_l: ParametricEq::new(sr),
             eq_r: ParametricEq::new(sr),
+            sub_filter: SubShelf::new(sr),
             compressor: MultibandCompressor::new(sr),
             saturation: dsp::Saturation::new(sr),
             stereo: StereoProcessor::new(sr),
@@ -271,6 +273,7 @@ impl Plugin for HardwaveLoudLab {
 
         self.eq_l.set_sample_rate(sr);
         self.eq_r.set_sample_rate(sr);
+        self.sub_filter.set_sample_rate(sr);
         self.compressor.set_sample_rate(sr);
         self.saturation.set_sample_rate(sr);
         self.stereo.set_sample_rate(sr);
@@ -286,6 +289,7 @@ impl Plugin for HardwaveLoudLab {
     fn reset(&mut self) {
         self.eq_l.reset();
         self.eq_r.reset();
+        self.sub_filter.reset();
         self.compressor.reset();
         self.saturation.reset();
         self.stereo.reset();
@@ -309,6 +313,7 @@ impl Plugin for HardwaveLoudLab {
         let p = &self.params;
         let intensity = p.intensity.value();
         let input_gain_db = p.input_gain.value();
+        let sub_gain_db = p.sub_gain.value();
         let output_gain_db = p.output_gain.value();
         // User's ceiling — honored in Auto mode too (Kosta: the producer chooses
         // their dBTP), not overridden by the genre profile.
@@ -358,6 +363,8 @@ impl Plugin for HardwaveLoudLab {
 
         let input_gain = db_to_linear(input_gain_db);
         let output_gain = db_to_linear(output_gain_db);
+        // Sub macro: recompute the ~45 Hz bell once per block (cheap; 0 dB = unity).
+        self.sub_filter.set_gain(sub_gain_db);
 
         // Update genre profile if needed.
         self.current_profile = GenreProfile::for_genre(genre);
@@ -464,6 +471,12 @@ impl Plugin for HardwaveLoudLab {
                 l = self.eq_l.process(l);
                 r = self.eq_r.process(r);
             }
+
+            // Sub macro — user's ~45 Hz push/cut, always active (independent of
+            // the auto EQ so it never fights the genre target). Unity at 0 dB.
+            let (sl, sr2) = self.sub_filter.process(l, r);
+            l = sl;
+            r = sr2;
 
             // Multiband compressor.
             if comp_enabled {

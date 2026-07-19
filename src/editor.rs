@@ -136,6 +136,7 @@ fn build_param_map(params: &HardwaveMasterParams) -> HashMap<String, nih_plug::p
     map.insert("genre".into(), params.genre.as_ptr());
     map.insert("intensity".into(), params.intensity.as_ptr());
     map.insert("input_gain".into(), params.input_gain.as_ptr());
+    map.insert("sub_gain".into(), params.sub_gain.as_ptr());
     map.insert("output_gain".into(), params.output_gain.as_ptr());
     map.insert("mix".into(), params.mix.as_ptr());
     map.insert("auto_mode".into(), params.auto_mode.as_ptr());
@@ -218,6 +219,7 @@ pub fn snapshot_params(params: &HardwaveMasterParams) -> MasterPacket {
         genre: genre_str.to_string(),
         intensity: params.intensity.value(),
         input_gain: params.input_gain.value(),
+        sub_gain: params.sub_gain.value(),
         output_gain: params.output_gain.value(),
         mix: params.mix.value(),
         auto_mode: params.auto_mode.value(),

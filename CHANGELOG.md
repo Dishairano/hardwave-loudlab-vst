@@ -4,6 +4,7 @@
 
 - Auto mode now targets loudness, not just tone. Pick a preset and it masters toward the right competitive level for the genre — no more manually riding Output to get loud. Slow and predictable by design, so it won't pump your quiet sections.
 - You choose your ceiling. The limiter ceiling now defaults to a codec-safe -1 dBTP and is fully yours to set — push it to 0 if you want to run right to the edge.
+- A dedicated **Sub** control. A broad ~45 Hz push/cut you ride like your own hand on the low end — works in Auto mode too, on top of the genre balance, so it never fights the preset.
 
 
 ## v0.6.15 — Fairer free trials (2026-07-11)

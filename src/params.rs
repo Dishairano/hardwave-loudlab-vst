@@ -36,6 +36,11 @@ pub struct HardwaveMasterParams {
     #[id = "input_gain"]
     pub input_gain: FloatParam,
 
+    /// Sub gain (dB) — a broad ~45 Hz push/cut the producer rides. User macro,
+    /// active in Auto mode too, on top of the genre EQ.
+    #[id = "sub_gain"]
+    pub sub_gain: FloatParam,
+
     /// Output gain (dB)
     #[id = "output_gain"]
     pub output_gain: FloatParam,
@@ -198,6 +203,12 @@ impl Default for HardwaveMasterParams {
             .with_string_to_value(formatters::s2v_f32_percentage()),
             input_gain: FloatParam::new(
                 "Input Gain",
+                0.0,
+                FloatRange::Linear { min: -12.0, max: 12.0 },
+            )
+            .with_unit(" dB"),
+            sub_gain: FloatParam::new(
+                "Sub",
                 0.0,
                 FloatRange::Linear { min: -12.0, max: 12.0 },
             )

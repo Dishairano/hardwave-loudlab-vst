@@ -1,5 +1,11 @@
 # Hardwave LoudLab — Changelog
 
+## v0.7.0 — Auto loudness + your ceiling (2026-07-18)
+
+- Auto mode now targets loudness, not just tone. Pick a preset and it masters toward the right competitive level for the genre — no more manually riding Output to get loud. Slow and predictable by design, so it won't pump your quiet sections.
+- You choose your ceiling. The limiter ceiling now defaults to a codec-safe -1 dBTP and is fully yours to set — push it to 0 if you want to run right to the edge.
+
+
 ## v0.6.15 — Fairer free trials (2026-07-11)
 
 - Free trials are now one per machine. Spinning up a new account no longer resets the 14-day trial. If you've bought LoudLab or you're on a Hardwave plan, nothing changes — full access continues exactly as before.

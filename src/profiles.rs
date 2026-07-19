@@ -20,6 +20,12 @@ pub struct GenreProfile {
     pub stereo_width: f32,
     pub mono_bass_freq: f32,
     pub limiter_ceiling_db: f32,
+    /// Integrated-LUFS target the auto loudness stage aims at. Harder styles
+    /// run hot; long intros/breakdowns pull a full track a touch lower. Tune by ear.
+    pub target_lufs_i: f32,
+    /// Dead-zone (LU) around the target — auto does nothing within it, for
+    /// predictable, non-pumping loudness.
+    pub lufs_tolerance: f32,
 }
 
 impl GenreProfile {
@@ -55,6 +61,8 @@ impl GenreProfile {
             stereo_width: 1.15,
             mono_bass_freq: 120.0,
             limiter_ceiling_db: -0.3,
+            target_lufs_i: -7.0,
+            lufs_tolerance: 1.0,
         }
     }
 
@@ -77,6 +85,8 @@ impl GenreProfile {
             stereo_width: 1.05,
             mono_bass_freq: 150.0,
             limiter_ceiling_db: -0.1,
+            target_lufs_i: -6.5,
+            lufs_tolerance: 1.0,
         }
     }
 
@@ -99,6 +109,8 @@ impl GenreProfile {
             stereo_width: 1.1,
             mono_bass_freq: 140.0,
             limiter_ceiling_db: -0.1,
+            target_lufs_i: -6.0,
+            lufs_tolerance: 1.0,
         }
     }
 
@@ -121,6 +133,8 @@ impl GenreProfile {
             stereo_width: 1.0,
             mono_bass_freq: 160.0,
             limiter_ceiling_db: -0.1,
+            target_lufs_i: -6.5,
+            lufs_tolerance: 1.0,
         }
     }
 
@@ -143,6 +157,8 @@ impl GenreProfile {
             stereo_width: 1.2,
             mono_bass_freq: 100.0,
             limiter_ceiling_db: -0.3,
+            target_lufs_i: -9.0,
+            lufs_tolerance: 1.5,
         }
     }
 
@@ -165,6 +181,8 @@ impl GenreProfile {
             stereo_width: 1.1,
             mono_bass_freq: 120.0,
             limiter_ceiling_db: -0.5,
+            target_lufs_i: -10.0,
+            lufs_tolerance: 1.5,
         }
     }
 
@@ -187,6 +205,8 @@ impl GenreProfile {
             stereo_width: 1.0,
             mono_bass_freq: 120.0,
             limiter_ceiling_db: -0.3,
+            target_lufs_i: -12.0,
+            lufs_tolerance: 2.0,
         }
     }
 }

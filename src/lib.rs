@@ -157,6 +157,8 @@ struct HardwaveLoudLab {
     // State for throttled auto-compute (every N samples).
     samples_since_auto: usize,
     current_profile: GenreProfile,
+    // Auto loudness-targeting makeup (dB), applied pre-limiter in Auto mode.
+    auto_makeup_db: f32,
 
     sample_rate: f32,
 
@@ -212,6 +214,7 @@ impl Default for HardwaveLoudLab {
             update_counter: 0,
             samples_since_auto: 0,
             current_profile: GenreProfile::for_genre(Genre::Hardstyle),
+            auto_makeup_db: 0.0,
             sample_rate: sr,
             max_pos_samples: 0,
             last_is_playing: false,
@@ -293,6 +296,7 @@ impl Plugin for HardwaveLoudLab {
         self.output_stereo_meter.reset();
         self.auto_engine.reset();
         self.samples_since_auto = 0;
+        self.auto_makeup_db = 0.0;
     }
 
     fn process(
@@ -306,6 +310,9 @@ impl Plugin for HardwaveLoudLab {
         let intensity = p.intensity.value();
         let input_gain_db = p.input_gain.value();
         let output_gain_db = p.output_gain.value();
+        // User's ceiling — honored in Auto mode too (Kosta: the producer chooses
+        // their dBTP), not overridden by the genre profile.
+        let limiter_ceiling_db = p.limiter_ceiling.value();
         let mix = p.mix.value();
         let auto_mode = p.auto_mode.value();
         let master_enabled = p.master_enabled.value();
@@ -357,6 +364,8 @@ impl Plugin for HardwaveLoudLab {
 
         // If NOT auto mode, read manual EQ/comp/stereo/limiter params.
         if !auto_mode {
+            // Clear auto loudness makeup so leaving Auto doesn't leave residual gain.
+            self.auto_makeup_db = 0.0;
             self.apply_manual_params();
         }
 
@@ -425,7 +434,27 @@ impl Plugin for HardwaveLoudLab {
                         // exactly like apply_manual_params does.
                         self.stereo.bass_mono = self.params.stereo_mono_bass.value();
                         self.stereo.update_filters();
-                        self.limiter.set_ceiling(result.limiter_ceiling_db);
+                        // Ceiling = the USER's param, not the profile's — Kosta:
+                        // the producer chooses their dBTP.
+                        self.limiter.set_ceiling(limiter_ceiling_db);
+
+                        // ── Loudness targeting ──────────────────────────────
+                        // Nudge an auto makeup gain toward the genre's
+                        // integrated-LUFS target. Slow slew + dead-zone =
+                        // predictable, no pumping; applied PRE-limiter (below)
+                        // so the ceiling is still the hard guarantee.
+                        // NOTE (tune by ear): target_lufs_i lives in the genre
+                        // profile; step rate and clamp below set the feel.
+                        let measured = self.output_meter.integrated_lufs();
+                        if measured > -70.0 {
+                            let err = self.current_profile.target_lufs_i - measured; // +ve = too quiet
+                            if err.abs() > self.current_profile.lufs_tolerance {
+                                // ~0.15 dB/tick * ~20 ticks/s ≈ 3 dB/s max, scaled by Intensity.
+                                let step = err.signum() * 0.15 * intensity.max(0.1);
+                                self.auto_makeup_db =
+                                    (self.auto_makeup_db + step).clamp(-3.0, 12.0);
+                            }
+                        }
                     }
                 }
             }
@@ -458,6 +487,14 @@ impl Plugin for HardwaveLoudLab {
                 let (sl, sr_out) = self.stereo.process(l, r);
                 l = sl;
                 r = sr_out;
+            }
+
+            // Auto loudness makeup — applied here, PRE-limiter, so the ceiling
+            // stays the hard guarantee no matter how hard auto pushes.
+            if auto_mode && self.auto_makeup_db != 0.0 {
+                let am = db_to_linear(self.auto_makeup_db);
+                l *= am;
+                r *= am;
             }
 
             // Limiter.

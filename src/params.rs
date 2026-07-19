@@ -387,7 +387,10 @@ impl Default for HardwaveMasterParams {
             limiter_enabled: BoolParam::new("Limiter On", true),
             limiter_ceiling: FloatParam::new(
                 "Ceiling",
-                -0.3,
+                // Default -1.0 dBTP: codec-safe (inter-sample peaks reconstruct
+                // above 0 in MP3/AAC). Range still reaches 0.0 so a producer can
+                // push to the edge on purpose — Kosta's call, their choice.
+                -1.0,
                 FloatRange::Linear { min: -6.0, max: 0.0 },
             )
             .with_unit(" dB"),

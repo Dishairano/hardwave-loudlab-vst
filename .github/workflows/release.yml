@@ -120,7 +120,8 @@ jobs:
 
   release:
     needs: [build-linux, build-windows, build-macos-x64, build-macos-arm64]
-    runs-on: ubuntu-latest
+    # macOS: lipo and codesign do not exist on Linux.
+    runs-on: macos-latest
     permissions:
       contents: write
 
@@ -149,17 +150,35 @@ jobs:
 
       - name: Create universal macOS zip
         run: |
-          mkdir -p universal-macos/hardwave-loudlab.vst3/Contents
-          cd artifacts/hardwave-loudlab-macos-arm64
-          unzip hardwave-loudlab-macos-arm64.zip
-          cd ../..
-          cd artifacts/hardwave-loudlab-macos-x64
-          unzip hardwave-loudlab-macos-x64.zip
-          cd ../..
-          cp -r artifacts/hardwave-loudlab-macos-arm64/hardwave-loudlab.vst3 universal-macos/
-          cp -r artifacts/hardwave-loudlab-macos-arm64/hardwave-loudlab.clap universal-macos/
+          set -euo pipefail
+          # This step used to copy the arm64 build and call it "universal", so every
+          # Intel Mac failed to load the plug-in — reported only as "failed to scan".
+          cd artifacts/hardwave-loudlab-macos-arm64 && unzip -o -q hardwave-loudlab-macos-arm64.zip && cd ../..
+          cd artifacts/hardwave-loudlab-macos-x64   && unzip -o -q hardwave-loudlab-macos-x64.zip   && cd ../..
+
+          rm -rf universal-macos && mkdir -p universal-macos
+          cp -R artifacts/hardwave-loudlab-macos-x64/hardwave-loudlab.vst3 universal-macos/
+          cp -R artifacts/hardwave-loudlab-macos-x64/hardwave-loudlab.clap universal-macos/
+
+          for K in vst3 clap; do
+            lipo -create \
+              artifacts/hardwave-loudlab-macos-x64/hardwave-loudlab.$K/Contents/MacOS/hardwave-loudlab \
+              artifacts/hardwave-loudlab-macos-arm64/hardwave-loudlab.$K/Contents/MacOS/hardwave-loudlab \
+              -output universal-macos/hardwave-loudlab.$K/Contents/MacOS/hardwave-loudlab
+            codesign --force --deep --sign - universal-macos/hardwave-loudlab.$K
+          done
+
+          for K in vst3 clap; do
+            A=$(lipo -archs universal-macos/hardwave-loudlab.$K/Contents/MacOS/hardwave-loudlab)
+            echo "hardwave-loudlab.$K -> $A"
+            case "$A" in
+              *x86_64*arm64*|*arm64*x86_64*) ;;
+              *) echo "::error::hardwave-loudlab.$K is not universal ($A)"; exit 1 ;;
+            esac
+          done
+
           cd universal-macos
-          zip -r hardwave-loudlab-macos-universal.zip hardwave-loudlab.vst3 hardwave-loudlab.clap
+          zip -r -q hardwave-loudlab-macos-universal.zip hardwave-loudlab.vst3 hardwave-loudlab.clap
 
       - name: Create Release
         uses: softprops/action-gh-release@v1

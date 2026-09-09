@@ -80,7 +80,7 @@ unsafe impl Sync for RwhWrapper {}
 
 impl raw_window_handle::HasWindowHandle for RwhWrapper {
     fn window_handle(&self) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
-        use raw_window_handle::{HandleError, RawWindowHandle};
+        use raw_window_handle::RawWindowHandle;
 
         #[cfg(target_os = "linux")]
         let raw = {
@@ -709,7 +709,7 @@ fn spawn_unix(
             .with_url(&url)
             .with_initialization_script(&init_js)
             .with_ipc_handler(move |msg| {
-                handle_ipc(&ctx, &pmap, &ipc_reset_flag, &msg.body());
+                handle_ipc(&ctx, &pmap, &ipc_reset_flag, msg.body());
             })
             .with_bounds(wry::Rect {
                 position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),

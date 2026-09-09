@@ -407,11 +407,13 @@ impl LufsMeter {
     }
 
     /// True peak as a linear value.
+    #[allow(dead_code)]
     pub fn true_peak_linear(&self) -> f32 {
         self.true_peak
     }
 
     /// Reset the true peak hold (call e.g. on playback start).
+    #[allow(dead_code)]
     pub fn reset_true_peak(&mut self) {
         self.true_peak = 0.0;
     }

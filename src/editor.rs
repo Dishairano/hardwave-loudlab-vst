@@ -393,6 +393,7 @@ pub struct MasterEditor {
     /// Process-unique identifier for this plug-in instance. Used to give
     /// every instance its own WebView2 user-data folder so two LoudLabs in
     /// the same DAW project don't collide on the same lock file.
+    #[allow(dead_code)]
     instance_id: String,
 }
 

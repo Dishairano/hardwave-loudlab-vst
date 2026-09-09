@@ -7,7 +7,7 @@
 //! When Auto mode is enabled, the AI engine analyses the spectrum and adjusts
 //! EQ, compressor, stereo, and limiter settings toward the selected genre target.
 
-#![allow(clippy::doc_lazy_continuation, clippy::empty_line_after_doc_comments, clippy::inconsistent_digit_grouping, clippy::needless_range_loop, clippy::too_many_arguments, dead_code, unused)]
+#![allow(clippy::doc_lazy_continuation, clippy::empty_line_after_doc_comments, clippy::inconsistent_digit_grouping, clippy::needless_range_loop, clippy::too_many_arguments)]
 use crossbeam_channel::{Sender, Receiver};
 use nih_plug::prelude::*;
 use parking_lot::Mutex;

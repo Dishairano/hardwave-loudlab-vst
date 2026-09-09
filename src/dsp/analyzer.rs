@@ -108,6 +108,7 @@ impl SpectrumAnalyzer {
     /// Returns `Some(spectrum)` when a new FFT frame has been computed since the
     /// last call, otherwise `None`. The returned `Vec<f32>` contains FFT_SIZE/2
     /// magnitude values in dB.
+    #[allow(dead_code)]
     pub fn get_spectrum(&mut self) -> Option<Vec<f32>> {
         if self.frame_ready {
             self.frame_ready = false;
@@ -143,11 +144,13 @@ impl SpectrumAnalyzer {
     }
 
     /// Number of bins in the spectrum (FFT_SIZE / 2).
+    #[allow(dead_code)]
     pub fn bin_count(&self) -> usize {
         FFT_SIZE / 2
     }
 
     /// Frequency corresponding to a given bin index.
+    #[allow(dead_code)]
     pub fn bin_to_freq(&self, bin: usize) -> f32 {
         bin as f32 * self.sample_rate / FFT_SIZE as f32
     }

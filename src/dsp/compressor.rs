@@ -351,6 +351,7 @@ impl MultibandCompressor {
     }
 
     /// Get current parameters for a band.
+    #[allow(dead_code)]
     pub fn get_band_params(&self, band: usize) -> BandCompParams {
         self.comp[band].params
     }

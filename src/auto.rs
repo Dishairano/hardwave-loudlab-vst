@@ -125,6 +125,7 @@ pub struct AutoResult {
     pub comp_xover: [f32; 3],
     pub stereo_width: f32,
     pub mono_bass_freq: f32,
+    #[allow(dead_code)]
     pub limiter_ceiling_db: f32,
 }
 

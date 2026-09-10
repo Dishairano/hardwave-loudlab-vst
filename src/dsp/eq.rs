@@ -138,6 +138,7 @@ impl ParametricEq {
     }
 
     /// Get current parameters for a band.
+    #[allow(dead_code)]
     pub fn get_band(&self, index: usize) -> EqBandParams {
         self.bands[index]
     }

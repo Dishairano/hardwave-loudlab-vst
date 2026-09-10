@@ -7,6 +7,7 @@
 //! When Auto mode is enabled, the AI engine analyses the spectrum and adjusts
 //! EQ, compressor, stereo, and limiter settings toward the selected genre target.
 
+#![allow(clippy::doc_lazy_continuation, clippy::empty_line_after_doc_comments, clippy::inconsistent_digit_grouping, clippy::needless_range_loop, clippy::too_many_arguments)]
 use crossbeam_channel::{Sender, Receiver};
 use nih_plug::prelude::*;
 use parking_lot::Mutex;
@@ -88,7 +89,7 @@ fn install_crash_handler() {
                 let _ = writeln!(f, "Arch:     {}", std::env::consts::ARCH);
                 let _ = writeln!(f, "Location: {}", location);
                 let _ = writeln!(f, "Message:  {}", payload);
-                let _ = writeln!(f, "");
+                let _ = writeln!(f);
                 let _ = writeln!(f, "Backtrace:");
                 let _ = writeln!(f, "{}", bt);
                 let _ = writeln!(f, "========================================");
@@ -326,8 +327,8 @@ impl Plugin for HardwaveLoudLab {
         let stereo_enabled = p.stereo_enabled.value();
         let limiter_enabled = p.limiter_enabled.value();
         let sat_enabled = p.sat_enabled.value();
-        let sat_drive_db = p.sat_drive.value();
-        let sat_mix = p.sat_mix.value();
+        let _sat_drive_db = p.sat_drive.value();
+        let _sat_mix = p.sat_mix.value();
         let genre = p.genre.value();
 
         // Track the maximum playback position ever observed so the webview

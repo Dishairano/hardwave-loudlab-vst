@@ -30,7 +30,21 @@ static LAST_SENT: Mutex<Option<(String, Instant)>> = Mutex::new(None);
 /// Install a process-wide panic hook that forwards crash payloads to the
 /// telemetry endpoint. Safe to call from multiple `Plugin::initialize`
 /// paths — only the first invocation per process actually installs.
+/// True when this process is a `cargo test` run or the founder asked for no reports.
+///
+/// Cargo sets `CARGO_MANIFEST_DIR` and `CARGO_PKG_NAME` for the test binaries it runs; a DAW does
+/// not. Without this, a failing assertion in our own test suite arrives in the crash dashboard as
+/// a user crash. Six such reports on 2026-09-15 became three bug tickets nobody could act on.
+fn reporting_disabled() -> bool {
+    std::env::var_os("HW_NO_CRASH_REPORT").is_some()
+        || (std::env::var_os("CARGO_MANIFEST_DIR").is_some()
+            && std::env::var_os("CARGO_PKG_NAME").is_some())
+}
+
 pub fn install(plugin_slug: &'static str) {
+    if reporting_disabled() {
+        return;
+    }
     INIT.call_once(|| {
         let prev = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {

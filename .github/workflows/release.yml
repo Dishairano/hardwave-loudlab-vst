@@ -261,10 +261,28 @@ jobs:
         if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_BETA_WEBHOOK_URL: ${{ secrets.DISCORD_BETA_WEBHOOK_URL }}
           VERSION: ${{ steps.version.outputs.version }}
           PLUGIN_NAME: "Hardwave LoudLab"
         run: |
           set -eu
+          # Release announcements (founder's rule, 2026-09-15): a clean tag gets its
+          # version post on the changelog webhook; a release candidate (any "-"
+          # suffix) notifies beta testers only, and founders are beta testers.
+          # An RC never posts on the public webhook: without a beta webhook
+          # secret it is skipped.
+          case "$VERSION" in
+            *-*)
+              HOOK="${DISCORD_BETA_WEBHOOK_URL:-}"
+              if [ -z "$HOOK" ]; then
+                echo "Release candidate ${VERSION}: no DISCORD_BETA_WEBHOOK_URL secret, not posting"
+                exit 0
+              fi
+              ;;
+            *)
+              HOOK="$DISCORD_WEBHOOK_URL"
+              ;;
+          esac
 
           # ── Extract bullets for $VERSION from CHANGELOG.md ──────────────
           #
@@ -349,7 +367,7 @@ jobs:
 
           curl -fsS -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
-            "$DISCORD_WEBHOOK_URL" >/dev/null
+            "$HOOK" >/dev/null
           echo "Discord changelog posted for ${VERSION}"
 
   # ── Suite beta channel ──────────────────────────────────────────────────

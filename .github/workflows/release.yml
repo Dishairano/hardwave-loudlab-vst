@@ -314,11 +314,22 @@ jobs:
                 if ($2 == ver) in_sec = 1
                 next
               }
-              # Inside the target section, capture every top-level bullet.
+              # Inside the target section, capture every top-level bullet, written with - or
+              # with the bullet character, and keep the house section names as bold lines.
               # Skip "### Subheading" lines and prose.
               in_sec && /^- / {
                 sub(/^- /, "")
                 print
+                next
+              }
+              in_sec && /^\xe2\x80\xa2 / {
+                sub(/^\xe2\x80\xa2[[:space:]]*/, "")
+                print
+                next
+              }
+              in_sec && /^(New features|Bug fixes|Improvements)[[:space:]]*$/ {
+                print "**" $0 "**"
+                next
               }
             ' CHANGELOG.md | sed 's/[[:space:]]*$//')
           fi
@@ -327,8 +338,8 @@ jobs:
             # Fallback path 1 — old behaviour: read from the tag annotation.
             git fetch --tags --force >/dev/null 2>&1 || true
             BULLETS=$(git tag -l --format='%(contents)' "$VERSION" 2>/dev/null \
-              | grep '^[[:space:]]*[-*]' \
-              | sed -e 's/^[[:space:]]*[-*][[:space:]]*//' \
+              | grep '^[[:space:]]*[-*\xe2\x80\xa2]' \
+              | sed -e 's/^[[:space:]]*[-*\xe2\x80\xa2][[:space:]]*//' \
                     -e 's/[[:space:]]*$//' \
               || true)
           fi

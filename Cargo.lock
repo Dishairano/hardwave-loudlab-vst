@@ -1266,7 +1266,7 @@ dependencies = [
 [[package]]
 name = "nih_plug"
 version = "0.0.0"
-source = "git+https://github.com/Dishairano/nih-plug-hardwave.git?branch=main#182104c5124c5fce090504247684e9236ac6cf42"
+source = "git+https://github.com/Dishairano/nih-plug-hardwave.git?branch=main#3e89b6012371015c50a0170587217ea1046e58fe"
 dependencies = [
  "anyhow",
  "anymap3",
@@ -1296,7 +1296,7 @@ dependencies = [
 [[package]]
 name = "nih_plug_derive"
 version = "0.1.0"
-source = "git+https://github.com/Dishairano/nih-plug-hardwave.git?branch=main#182104c5124c5fce090504247684e9236ac6cf42"
+source = "git+https://github.com/Dishairano/nih-plug-hardwave.git?branch=main#3e89b6012371015c50a0170587217ea1046e58fe"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2881,7 +2881,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -2994,15 +2994,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
 dependencies = [
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-sys"
-version = "0.61.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
-dependencies = [
- "windows-link",
 ]
 
 [[package]]

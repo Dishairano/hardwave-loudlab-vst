@@ -335,17 +335,17 @@ fn handle_ipc(
     reset_capture_flag: &std::sync::atomic::AtomicBool,
     raw_body: &str,
 ) {
-    let msg: serde_json::Value = match serde_json::from_str(raw_body) {
-        Ok(v) => v,
+    // Parse into the protocol enum, not a loose Value: an unknown `type` or a
+    // missing field fails here rather than being quietly dropped in a match arm.
+    let msg: crate::protocol::UiMessage = match serde_json::from_str(raw_body) {
+        Ok(m) => m,
         Err(_) => return,
     };
 
-    let msg_type = msg.get("type").and_then(|t| t.as_str()).unwrap_or("");
-    match msg_type {
-        "set_param" => {
-            let id = msg.get("id").and_then(|v| v.as_str()).unwrap_or("");
-            let value = msg.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            if let Some(ptr) = param_map.get(id) {
+    use crate::protocol::UiMessage;
+    match msg {
+        UiMessage::SetParam { id, value } => {
+            if let Some(ptr) = param_map.get(&id) {
                 // The webview sends *plain* values (e.g. -1.4 dB for eq_low_gain,
                 // 28 Hz for eq_low_freq, -18.5 dB for comp_sub_thresh). Convert
                 // to the normalized [0.0, 1.0] form expected by
@@ -361,22 +361,23 @@ fn handle_ipc(
                 }
             }
         }
-        "reset_capture" => {
+        UiMessage::ResetCapture => {
             // Set the atomic; process() picks it up at the top of the next
             // block and resets the meters + max-pos + max-momentary in one
             // shot. Using Release ordering pairs with the Acquire load on the
             // audio thread so the reset is visible there.
             reset_capture_flag.store(true, std::sync::atomic::Ordering::Release);
         }
-        "save_token" => {
-            if let Some(token) = msg.get("token").and_then(|v| v.as_str()) {
-                let _ = auth::save_token(token);
-            }
+        UiMessage::SaveToken { token } => {
+            let _ = auth::save_token(&token);
         }
-        "clear_token" => {
+        UiMessage::ClearToken => {
             let _ = auth::clear_token();
         }
-        _ => {}
+        UiMessage::Resize { .. } => {
+            // Nothing to do yet: this editor is a fixed size. See the variant's
+            // note in protocol.rs.
+        }
     }
 }
 

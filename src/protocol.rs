@@ -119,15 +119,63 @@ pub struct MasterPacket {
     pub spectrum: Option<Vec<f32>>,
 }
 
-/// JS → Rust messages from the webview.
+/// JS -> Rust messages from the webview.
+///
+/// This is the whole protocol and `editor.rs` deserializes into it, so a
+/// message the webview sends that is not listed here fails to parse instead of
+/// being dropped in a catch-all arm. It had drifted badly while nothing used
+/// it: `set_genre` and `toggle_auto` do not exist on either side, and
+/// `reset_capture`, `save_token` and `clear_token`, which the handler has
+/// always supported, were missing.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
-#[allow(dead_code)]
 pub enum UiMessage {
     #[serde(rename = "set_param")]
     SetParam { id: String, value: f64 },
-    #[serde(rename = "set_genre")]
-    SetGenre { genre: String },
-    #[serde(rename = "toggle_auto")]
-    ToggleAuto { enabled: bool },
+
+    #[serde(rename = "reset_capture")]
+    ResetCapture,
+
+    #[serde(rename = "save_token")]
+    SaveToken { token: String },
+
+    #[serde(rename = "clear_token")]
+    ClearToken,
+
+    /// The UI's resize grip sends this on every drag. LoudLab's editor is a
+    /// fixed 1100x700 (`EDITOR_WIDTH`/`EDITOR_HEIGHT`) with no resize plumbing,
+    /// so the grip currently does nothing in a host. Listed here because the
+    /// message is real and arriving; handling it needs the editor to carry a
+    /// size and a resize channel, the way PumpControl and WideBoi do.
+    #[serde(rename = "resize")]
+    // The sizes are carried but not read yet, for the reason above.
+    #[allow(dead_code)]
+    Resize { width: u32, height: u32 },
+}
+
+#[cfg(test)]
+mod ui_message_tests {
+    use super::UiMessage;
+
+    /// The payloads the shipped LoudLab webview sends, taken from
+    /// apps/loudlab in vst-webviews. A rename on either side fails here.
+    #[test]
+    fn parses_every_message_the_ui_sends() {
+        let cases = [
+            r#"{"type":"set_param","id":"eq_low_gain","value":-1.4}"#,
+            r#"{"type":"reset_capture"}"#,
+            r#"{"type":"save_token","token":"abc"}"#,
+            r#"{"type":"clear_token"}"#,
+            r#"{"type":"resize","width":1400,"height":890}"#,
+        ];
+        for raw in cases {
+            serde_json::from_str::<UiMessage>(raw).unwrap_or_else(|e| panic!("{raw}: {e}"));
+        }
+    }
+
+    #[test]
+    fn refuses_what_it_does_not_know() {
+        assert!(serde_json::from_str::<UiMessage>(r#"{"type":"set_genre","genre":"hardstyle"}"#).is_err());
+        assert!(serde_json::from_str::<UiMessage>(r#"{"type":"set_param","id":"x"}"#).is_err());
+    }
 }

@@ -133,9 +133,9 @@ mod tests {
     fn goertzel(samples: &[f32], f: f32) -> f32 {
         let w = 2.0 * std::f32::consts::PI * f;
         let coeff = 2.0 * w.cos();
-        let (mut s0, mut s1, mut s2) = (0.0f32, 0.0f32, 0.0f32);
+        let (mut s1, mut s2) = (0.0f32, 0.0f32);
         for &x in samples {
-            s0 = x + coeff * s1 - s2;
+            let s0 = x + coeff * s1 - s2;
             s2 = s1;
             s1 = s0;
         }

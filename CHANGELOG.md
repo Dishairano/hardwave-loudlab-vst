@@ -1,5 +1,14 @@
 # Hardwave LoudLab — Changelog
 
+## v0.7.1 — Crash and control fixes (2026-09-17)
+
+Three faults found by the automated testers, not reported by anyone.
+
+- **A damaged project file could take the whole DAW down.** Loading a corrupt or foreign state made the plug-in ask for an impossible amount of memory, and the failed request killed the host process rather than the plug-in. It now refuses the state and carries on.
+- **Your settings came back, but the DAW did not know.** Reopening a project restored every control inside LoudLab without telling the host to re-read them, so a host that trusts its own copy showed and automated the old values. A project could sound different from what the controls said.
+- **Typed values were ignored on most controls.** Only a control whose text happened to match its own unit accepted a typed number, so anything printing its own format (-1.0 dBTP, 45 Hz) refused what you typed and snapped back. Every control takes a typed number now, and a displayed value survives being typed back in.
+- The macOS build is genuinely universal. It was labelled universal while holding an Apple Silicon binary only, which an Intel Mac reports as "failed to scan" and nothing else.
+
 ## v0.7.0 — Auto loudness + your ceiling (2026-07-18)
 
 - Auto mode now targets loudness, not just tone. Pick a preset and it masters toward the right competitive level for the genre — no more manually riding Output to get loud. Slow and predictable by design, so it won't pump your quiet sections.

@@ -94,7 +94,7 @@ impl raw_window_handle::HasWindowHandle for RwhWrapper {
             // that as Unavailable rather than panicking across the FFI
             // boundary into the host (which would crash the DAW).
             let ns_view = std::ptr::NonNull::new(self.0 as *mut _)
-                .ok_or(HandleError::Unavailable)?;
+                .ok_or(raw_window_handle::HandleError::Unavailable)?;
             let h = raw_window_handle::AppKitWindowHandle::new(ns_view);
             RawWindowHandle::AppKit(h)
         };
@@ -102,7 +102,7 @@ impl raw_window_handle::HasWindowHandle for RwhWrapper {
         #[cfg(target_os = "windows")]
         let raw = {
             let hwnd = std::num::NonZeroIsize::new(self.0 as isize)
-                .ok_or(HandleError::Unavailable)?;
+                .ok_or(raw_window_handle::HandleError::Unavailable)?;
             let h = raw_window_handle::Win32WindowHandle::new(hwnd);
             RawWindowHandle::Win32(h)
         };

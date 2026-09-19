@@ -103,10 +103,30 @@ pub struct ParametricEq {
 impl ParametricEq {
     pub fn new(sample_rate: f32) -> Self {
         let default_bands = [
-            EqBandParams { freq: 100.0, gain_db: 0.0, q: 0.707, enabled: true },
-            EqBandParams { freq: 500.0, gain_db: 0.0, q: 0.707, enabled: true },
-            EqBandParams { freq: 2000.0, gain_db: 0.0, q: 0.707, enabled: true },
-            EqBandParams { freq: 8000.0, gain_db: 0.0, q: 0.707, enabled: true },
+            EqBandParams {
+                freq: 100.0,
+                gain_db: 0.0,
+                q: 0.707,
+                enabled: true,
+            },
+            EqBandParams {
+                freq: 500.0,
+                gain_db: 0.0,
+                q: 0.707,
+                enabled: true,
+            },
+            EqBandParams {
+                freq: 2000.0,
+                gain_db: 0.0,
+                q: 0.707,
+                enabled: true,
+            },
+            EqBandParams {
+                freq: 8000.0,
+                gain_db: 0.0,
+                q: 0.707,
+                enabled: true,
+            },
         ];
         let mut eq = Self {
             sample_rate,

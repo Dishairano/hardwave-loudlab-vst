@@ -153,13 +153,18 @@ mod tests {
             out.push(os.process(x, tanh));
         }
         // Energy must be preserved within a few % (band-limited, low level).
-        let ein: f32 = (0..2048).map(|n| {
-            let x = 0.05 * (2.0 * std::f32::consts::PI * 0.01 * n as f32).sin();
-            x * x
-        }).sum();
+        let ein: f32 = (0..2048)
+            .map(|n| {
+                let x = 0.05 * (2.0 * std::f32::consts::PI * 0.01 * n as f32).sin();
+                x * x
+            })
+            .sum();
         let eout: f32 = out.iter().map(|y| y * y).sum();
         let ratio = eout / ein;
-        assert!(ratio > 0.9 && ratio < 1.1, "low-level energy ratio {ratio} out of band");
+        assert!(
+            ratio > 0.9 && ratio < 1.1,
+            "low-level energy ratio {ratio} out of band"
+        );
     }
 
     #[test]
@@ -186,7 +191,12 @@ mod tests {
             .collect();
         let mut os = Oversampler2x::new();
         let over: Vec<f32> = (0..n)
-            .map(|i| os.process(amp * (2.0 * std::f32::consts::PI * f * i as f32).sin(), tanh))
+            .map(|i| {
+                os.process(
+                    amp * (2.0 * std::f32::consts::PI * f * i as f32).sin(),
+                    tanh,
+                )
+            })
             .collect();
         // Probe the alias bin (3rd-harmonic fold-back ≈ 0.20 cyc/sample).
         let alias = 0.20_f32;

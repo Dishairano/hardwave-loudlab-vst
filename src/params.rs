@@ -193,30 +193,35 @@ impl Default for HardwaveMasterParams {
         Self {
             // Global
             genre: EnumParam::new("Genre", Genre::Hardstyle),
-            intensity: FloatParam::new(
-                "Intensity",
-                0.5,
-                FloatRange::Linear { min: 0.0, max: 1.0 },
-            )
-            .with_unit(" %")
-            .with_value_to_string(formatters::v2s_f32_percentage(0))
-            .with_string_to_value(formatters::s2v_f32_percentage()),
+            intensity: FloatParam::new("Intensity", 0.5, FloatRange::Linear { min: 0.0, max: 1.0 })
+                .with_unit(" %")
+                .with_value_to_string(formatters::v2s_f32_percentage(0))
+                .with_string_to_value(formatters::s2v_f32_percentage()),
             input_gain: FloatParam::new(
                 "Input Gain",
                 0.0,
-                FloatRange::Linear { min: -12.0, max: 12.0 },
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
             )
             .with_unit(" dB"),
             sub_gain: FloatParam::new(
                 "Sub",
                 0.0,
-                FloatRange::Linear { min: -12.0, max: 12.0 },
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
             )
             .with_unit(" dB"),
             output_gain: FloatParam::new(
                 "Output Gain",
                 0.0,
-                FloatRange::Linear { min: -12.0, max: 12.0 },
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
             )
             .with_unit(" dB"),
             mix: FloatParam::new("Mix", 1.0, FloatRange::Linear { min: 0.0, max: 1.0 })
@@ -236,70 +241,114 @@ impl Default for HardwaveMasterParams {
             eq_low_freq: FloatParam::new(
                 "EQ Low Freq",
                 80.0,
-                FloatRange::Skewed { min: 20.0, max: 500.0, factor: FloatRange::skew_factor(-1.5) },
+                FloatRange::Skewed {
+                    min: 20.0,
+                    max: 500.0,
+                    factor: FloatRange::skew_factor(-1.5),
+                },
             )
             .with_unit(" Hz"),
             eq_low_gain: FloatParam::new(
                 "EQ Low Gain",
                 0.0,
-                FloatRange::Linear { min: -12.0, max: 12.0 },
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
             )
             .with_unit(" dB"),
             eq_low_q: FloatParam::new(
                 "EQ Low Q",
                 0.7,
-                FloatRange::Skewed { min: 0.1, max: 10.0, factor: FloatRange::skew_factor(-2.0) },
+                FloatRange::Skewed {
+                    min: 0.1,
+                    max: 10.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
             ),
             eq_low_mid_freq: FloatParam::new(
                 "EQ Low-Mid Freq",
                 500.0,
-                FloatRange::Skewed { min: 200.0, max: 2000.0, factor: FloatRange::skew_factor(-1.0) },
+                FloatRange::Skewed {
+                    min: 200.0,
+                    max: 2000.0,
+                    factor: FloatRange::skew_factor(-1.0),
+                },
             )
             .with_unit(" Hz"),
             eq_low_mid_gain: FloatParam::new(
                 "EQ Low-Mid Gain",
                 0.0,
-                FloatRange::Linear { min: -12.0, max: 12.0 },
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
             )
             .with_unit(" dB"),
             eq_low_mid_q: FloatParam::new(
                 "EQ Low-Mid Q",
                 0.7,
-                FloatRange::Skewed { min: 0.1, max: 10.0, factor: FloatRange::skew_factor(-2.0) },
+                FloatRange::Skewed {
+                    min: 0.1,
+                    max: 10.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
             ),
             eq_high_mid_freq: FloatParam::new(
                 "EQ High-Mid Freq",
                 3000.0,
-                FloatRange::Skewed { min: 1000.0, max: 8000.0, factor: FloatRange::skew_factor(-1.0) },
+                FloatRange::Skewed {
+                    min: 1000.0,
+                    max: 8000.0,
+                    factor: FloatRange::skew_factor(-1.0),
+                },
             )
             .with_unit(" Hz"),
             eq_high_mid_gain: FloatParam::new(
                 "EQ High-Mid Gain",
                 0.0,
-                FloatRange::Linear { min: -12.0, max: 12.0 },
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
             )
             .with_unit(" dB"),
             eq_high_mid_q: FloatParam::new(
                 "EQ High-Mid Q",
                 0.7,
-                FloatRange::Skewed { min: 0.1, max: 10.0, factor: FloatRange::skew_factor(-2.0) },
+                FloatRange::Skewed {
+                    min: 0.1,
+                    max: 10.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
             ),
             eq_high_freq: FloatParam::new(
                 "EQ High Freq",
                 10000.0,
-                FloatRange::Skewed { min: 4000.0, max: 20000.0, factor: FloatRange::skew_factor(-1.0) },
+                FloatRange::Skewed {
+                    min: 4000.0,
+                    max: 20000.0,
+                    factor: FloatRange::skew_factor(-1.0),
+                },
             )
             .with_unit(" Hz"),
             eq_high_gain: FloatParam::new(
                 "EQ High Gain",
                 0.0,
-                FloatRange::Linear { min: -12.0, max: 12.0 },
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
             )
             .with_unit(" dB"),
             eq_high_q: FloatParam::new(
                 "EQ High Q",
                 0.7,
-                FloatRange::Skewed { min: 0.1, max: 10.0, factor: FloatRange::skew_factor(-2.0) },
+                FloatRange::Skewed {
+                    min: 0.1,
+                    max: 10.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
             ),
 
             // Multiband Compressor
@@ -312,53 +361,197 @@ impl Default for HardwaveMasterParams {
             comp_xover_low: FloatParam::new(
                 "Xover Low",
                 120.0,
-                FloatRange::Skewed { min: 20.0, max: 500.0, factor: FloatRange::skew_factor(-1.5) },
+                FloatRange::Skewed {
+                    min: 20.0,
+                    max: 500.0,
+                    factor: FloatRange::skew_factor(-1.5),
+                },
             )
             .with_unit(" Hz"),
             comp_xover_mid: FloatParam::new(
                 "Xover Mid",
                 2500.0,
-                FloatRange::Skewed { min: 500.0, max: 5000.0, factor: FloatRange::skew_factor(-1.0) },
+                FloatRange::Skewed {
+                    min: 500.0,
+                    max: 5000.0,
+                    factor: FloatRange::skew_factor(-1.0),
+                },
             )
             .with_unit(" Hz"),
             comp_xover_high: FloatParam::new(
                 "Xover High",
                 8000.0,
-                FloatRange::Skewed { min: 3000.0, max: 16000.0, factor: FloatRange::skew_factor(-1.0) },
+                FloatRange::Skewed {
+                    min: 3000.0,
+                    max: 16000.0,
+                    factor: FloatRange::skew_factor(-1.0),
+                },
             )
             .with_unit(" Hz"),
 
             // Sub band defaults
-            comp_sub_thresh: FloatParam::new("Sub Thresh", -12.0, FloatRange::Linear { min: -40.0, max: 0.0 }).with_unit(" dB"),
-            comp_sub_ratio: FloatParam::new("Sub Ratio", 2.0, FloatRange::Skewed { min: 1.0, max: 20.0, factor: FloatRange::skew_factor(-2.0) }),
-            comp_sub_attack: FloatParam::new("Sub Attack", 10.0, FloatRange::Skewed { min: 0.1, max: 100.0, factor: FloatRange::skew_factor(-2.0) }).with_unit(" ms"),
-            comp_sub_release: FloatParam::new("Sub Release", 100.0, FloatRange::Skewed { min: 10.0, max: 1000.0, factor: FloatRange::skew_factor(-1.5) }).with_unit(" ms"),
+            comp_sub_thresh: FloatParam::new(
+                "Sub Thresh",
+                -12.0,
+                FloatRange::Linear {
+                    min: -40.0,
+                    max: 0.0,
+                },
+            )
+            .with_unit(" dB"),
+            comp_sub_ratio: FloatParam::new(
+                "Sub Ratio",
+                2.0,
+                FloatRange::Skewed {
+                    min: 1.0,
+                    max: 20.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            ),
+            comp_sub_attack: FloatParam::new(
+                "Sub Attack",
+                10.0,
+                FloatRange::Skewed {
+                    min: 0.1,
+                    max: 100.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            )
+            .with_unit(" ms"),
+            comp_sub_release: FloatParam::new(
+                "Sub Release",
+                100.0,
+                FloatRange::Skewed {
+                    min: 10.0,
+                    max: 1000.0,
+                    factor: FloatRange::skew_factor(-1.5),
+                },
+            )
+            .with_unit(" ms"),
 
             // Low-mid band defaults
-            comp_lm_thresh: FloatParam::new("LM Thresh", -15.0, FloatRange::Linear { min: -40.0, max: 0.0 }).with_unit(" dB"),
-            comp_lm_ratio: FloatParam::new("LM Ratio", 3.0, FloatRange::Skewed { min: 1.0, max: 20.0, factor: FloatRange::skew_factor(-2.0) }),
-            comp_lm_attack: FloatParam::new("LM Attack", 5.0, FloatRange::Skewed { min: 0.1, max: 100.0, factor: FloatRange::skew_factor(-2.0) }).with_unit(" ms"),
-            comp_lm_release: FloatParam::new("LM Release", 80.0, FloatRange::Skewed { min: 10.0, max: 1000.0, factor: FloatRange::skew_factor(-1.5) }).with_unit(" ms"),
+            comp_lm_thresh: FloatParam::new(
+                "LM Thresh",
+                -15.0,
+                FloatRange::Linear {
+                    min: -40.0,
+                    max: 0.0,
+                },
+            )
+            .with_unit(" dB"),
+            comp_lm_ratio: FloatParam::new(
+                "LM Ratio",
+                3.0,
+                FloatRange::Skewed {
+                    min: 1.0,
+                    max: 20.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            ),
+            comp_lm_attack: FloatParam::new(
+                "LM Attack",
+                5.0,
+                FloatRange::Skewed {
+                    min: 0.1,
+                    max: 100.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            )
+            .with_unit(" ms"),
+            comp_lm_release: FloatParam::new(
+                "LM Release",
+                80.0,
+                FloatRange::Skewed {
+                    min: 10.0,
+                    max: 1000.0,
+                    factor: FloatRange::skew_factor(-1.5),
+                },
+            )
+            .with_unit(" ms"),
 
             // High-mid band defaults
-            comp_hm_thresh: FloatParam::new("HM Thresh", -18.0, FloatRange::Linear { min: -40.0, max: 0.0 }).with_unit(" dB"),
-            comp_hm_ratio: FloatParam::new("HM Ratio", 2.5, FloatRange::Skewed { min: 1.0, max: 20.0, factor: FloatRange::skew_factor(-2.0) }),
-            comp_hm_attack: FloatParam::new("HM Attack", 3.0, FloatRange::Skewed { min: 0.1, max: 100.0, factor: FloatRange::skew_factor(-2.0) }).with_unit(" ms"),
-            comp_hm_release: FloatParam::new("HM Release", 60.0, FloatRange::Skewed { min: 10.0, max: 1000.0, factor: FloatRange::skew_factor(-1.5) }).with_unit(" ms"),
+            comp_hm_thresh: FloatParam::new(
+                "HM Thresh",
+                -18.0,
+                FloatRange::Linear {
+                    min: -40.0,
+                    max: 0.0,
+                },
+            )
+            .with_unit(" dB"),
+            comp_hm_ratio: FloatParam::new(
+                "HM Ratio",
+                2.5,
+                FloatRange::Skewed {
+                    min: 1.0,
+                    max: 20.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            ),
+            comp_hm_attack: FloatParam::new(
+                "HM Attack",
+                3.0,
+                FloatRange::Skewed {
+                    min: 0.1,
+                    max: 100.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            )
+            .with_unit(" ms"),
+            comp_hm_release: FloatParam::new(
+                "HM Release",
+                60.0,
+                FloatRange::Skewed {
+                    min: 10.0,
+                    max: 1000.0,
+                    factor: FloatRange::skew_factor(-1.5),
+                },
+            )
+            .with_unit(" ms"),
 
             // High band defaults
-            comp_hi_thresh: FloatParam::new("Hi Thresh", -20.0, FloatRange::Linear { min: -40.0, max: 0.0 }).with_unit(" dB"),
-            comp_hi_ratio: FloatParam::new("Hi Ratio", 2.0, FloatRange::Skewed { min: 1.0, max: 20.0, factor: FloatRange::skew_factor(-2.0) }),
-            comp_hi_attack: FloatParam::new("Hi Attack", 1.0, FloatRange::Skewed { min: 0.1, max: 100.0, factor: FloatRange::skew_factor(-2.0) }).with_unit(" ms"),
-            comp_hi_release: FloatParam::new("Hi Release", 50.0, FloatRange::Skewed { min: 10.0, max: 1000.0, factor: FloatRange::skew_factor(-1.5) }).with_unit(" ms"),
+            comp_hi_thresh: FloatParam::new(
+                "Hi Thresh",
+                -20.0,
+                FloatRange::Linear {
+                    min: -40.0,
+                    max: 0.0,
+                },
+            )
+            .with_unit(" dB"),
+            comp_hi_ratio: FloatParam::new(
+                "Hi Ratio",
+                2.0,
+                FloatRange::Skewed {
+                    min: 1.0,
+                    max: 20.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            ),
+            comp_hi_attack: FloatParam::new(
+                "Hi Attack",
+                1.0,
+                FloatRange::Skewed {
+                    min: 0.1,
+                    max: 100.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            )
+            .with_unit(" ms"),
+            comp_hi_release: FloatParam::new(
+                "Hi Release",
+                50.0,
+                FloatRange::Skewed {
+                    min: 10.0,
+                    max: 1000.0,
+                    factor: FloatRange::skew_factor(-1.5),
+                },
+            )
+            .with_unit(" ms"),
 
             // Stereo
             stereo_enabled: BoolParam::new("Stereo On", true),
-            stereo_width: FloatParam::new(
-                "Width",
-                1.0,
-                FloatRange::Linear { min: 0.0, max: 2.0 },
-            ),
+            stereo_width: FloatParam::new("Width", 1.0, FloatRange::Linear { min: 0.0, max: 2.0 }),
             // Default OFF: mono-summing the sub by default (via the gentle
             // 1st-order crossover) phase-cancelled low end and gutted the sub
             // — the founders "bass almost non-existent" report. Stays an
@@ -367,7 +560,11 @@ impl Default for HardwaveMasterParams {
             stereo_mono_bass_freq: FloatParam::new(
                 "Mono Bass Freq",
                 120.0,
-                FloatRange::Skewed { min: 20.0, max: 300.0, factor: FloatRange::skew_factor(-1.5) },
+                FloatRange::Skewed {
+                    min: 20.0,
+                    max: 300.0,
+                    factor: FloatRange::skew_factor(-1.5),
+                },
             )
             .with_unit(" Hz"),
 
@@ -376,7 +573,10 @@ impl Default for HardwaveMasterParams {
             sat_drive: FloatParam::new(
                 "Saturation Drive",
                 0.0,
-                FloatRange::Linear { min: 0.0, max: 24.0 },
+                FloatRange::Linear {
+                    min: 0.0,
+                    max: 24.0,
+                },
             )
             .with_unit(" dB"),
             sat_mix: FloatParam::new(
@@ -389,10 +589,42 @@ impl Default for HardwaveMasterParams {
             // makeup, matches the existing behaviour exactly so this
             // migration doesn't audibly change anything on existing
             // saved projects.
-            comp_sub_makeup: FloatParam::new("Sub Makeup",      0.0, FloatRange::Linear { min: -12.0, max: 12.0 }).with_unit(" dB"),
-            comp_lm_makeup:  FloatParam::new("Low-mid Makeup",  0.0, FloatRange::Linear { min: -12.0, max: 12.0 }).with_unit(" dB"),
-            comp_hm_makeup:  FloatParam::new("High-mid Makeup", 0.0, FloatRange::Linear { min: -12.0, max: 12.0 }).with_unit(" dB"),
-            comp_hi_makeup:  FloatParam::new("Air Makeup",      0.0, FloatRange::Linear { min: -12.0, max: 12.0 }).with_unit(" dB"),
+            comp_sub_makeup: FloatParam::new(
+                "Sub Makeup",
+                0.0,
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
+            )
+            .with_unit(" dB"),
+            comp_lm_makeup: FloatParam::new(
+                "Low-mid Makeup",
+                0.0,
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
+            )
+            .with_unit(" dB"),
+            comp_hm_makeup: FloatParam::new(
+                "High-mid Makeup",
+                0.0,
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
+            )
+            .with_unit(" dB"),
+            comp_hi_makeup: FloatParam::new(
+                "Air Makeup",
+                0.0,
+                FloatRange::Linear {
+                    min: -12.0,
+                    max: 12.0,
+                },
+            )
+            .with_unit(" dB"),
 
             // Limiter
             limiter_enabled: BoolParam::new("Limiter On", true),
@@ -402,7 +634,10 @@ impl Default for HardwaveMasterParams {
                 // above 0 in MP3/AAC). Range still reaches 0.0 so a producer can
                 // push to the edge on purpose — Kosta's call, their choice.
                 -1.0,
-                FloatRange::Linear { min: -6.0, max: 0.0 },
+                FloatRange::Linear {
+                    min: -6.0,
+                    max: 0.0,
+                },
             )
             .with_unit(" dB"),
         }

@@ -7,13 +7,21 @@
 //! When Auto mode is enabled, the AI engine analyses the spectrum and adjusts
 //! EQ, compressor, stereo, and limiter settings toward the selected genre target.
 
-#![allow(clippy::doc_lazy_continuation, clippy::empty_line_after_doc_comments, clippy::inconsistent_digit_grouping, clippy::needless_range_loop, clippy::too_many_arguments)]
-use crossbeam_channel::{Sender, Receiver};
+#![allow(
+    clippy::doc_lazy_continuation,
+    clippy::empty_line_after_doc_comments,
+    clippy::inconsistent_digit_grouping,
+    clippy::needless_range_loop,
+    clippy::too_many_arguments
+)]
+use crossbeam_channel::{Receiver, Sender};
 use nih_plug::prelude::*;
+use nih_plug::wrapper::state::ParamValue;
 use parking_lot::Mutex;
+use std::collections::HashMap;
 use std::num::NonZeroU32;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 mod auth;
 mod auto;
@@ -117,11 +125,11 @@ fn unix_timestamp() -> String {
 }
 
 use auto::AutoEngine;
-use dsp::eq::EqBandParams;
 use dsp::compressor::BandCompParams;
+use dsp::eq::EqBandParams;
 use dsp::{
-    BrickwallLimiter, LufsMeter, MultibandCompressor, ParametricEq, SpectrumAnalyzer,
-    StereoMeter, StereoProcessor, SubShelf,
+    BrickwallLimiter, LufsMeter, MultibandCompressor, ParametricEq, SpectrumAnalyzer, StereoMeter,
+    StereoProcessor, SubShelf,
 };
 use params::{Genre, HardwaveMasterParams};
 use profiles::GenreProfile;
@@ -257,13 +265,86 @@ impl Plugin for HardwaveLoudLab {
         )))
     }
 
+    /// Pull a restored state into the ranges the parameters declare, before
+    /// nih-plug writes it into them.
+    ///
+    /// nih-plug's `set_plain_value` stores the number from the state verbatim:
+    /// it clamps the normalized view to 0..1 but keeps the plain value as
+    /// written. So a damaged project chunk, a chunk from another plug-in that
+    /// happens to parse, or a hand-edited preset can leave a parameter holding
+    /// a value its own range forbids. The DSP is guarded separately (see
+    /// `in_range`), but the host and the editor read the parameters directly,
+    /// which is how a project comes back showing settings it never saved.
+    /// Correcting the state here fixes both at once, and an entry that is not a
+    /// real number is dropped so that parameter keeps its default.
+    fn filter_state(state: &mut PluginState) {
+        let params = HardwaveMasterParams::default();
+        let by_id: HashMap<String, ParamPtr> = params
+            .param_map()
+            .into_iter()
+            .map(|(id, ptr, _group)| (id, ptr))
+            .collect();
+
+        state.params.retain(|id, value| {
+            let ptr = match by_id.get(id) {
+                Some(ptr) => ptr,
+                // A parameter this build does not know about. Leave it alone:
+                // nih-plug skips it, and dropping it would lose the value for a
+                // build that does know it.
+                None => return true,
+            };
+
+            match value {
+                ParamValue::F32(v) => {
+                    if !v.is_finite() {
+                        return false;
+                    }
+                    // SAFETY: `params` owns the parameters `by_id` points into
+                    // and stays alive until the end of this function, so every
+                    // pointer here is still valid.
+                    *v = unsafe { ptr.preview_plain(ptr.preview_normalized(*v)) };
+                    true
+                }
+                ParamValue::I32(v) => {
+                    // Covers enum parameters stored by variant index. An index
+                    // past the end of the enum would otherwise silently read
+                    // back as the first variant.
+                    // SAFETY: as above.
+                    let corrected = unsafe { ptr.preview_plain(ptr.preview_normalized(*v as f32)) };
+                    if !corrected.is_finite() {
+                        return false;
+                    }
+                    *v = corrected as i32;
+                    true
+                }
+                // A bool cannot be out of range, and a string is an enum's
+                // stable variant ID — nih-plug already ignores one it does not
+                // recognise.
+                ParamValue::Bool(_) | ParamValue::String(_) => true,
+            }
+        });
+    }
+
     fn initialize(
         &mut self,
         _audio_io_layout: &AudioIOLayout,
         buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
-        let sr = buffer_config.sample_rate;
+        // The host's sample rate sizes every ring buffer below and sits in the
+        // denominator of every filter coefficient, so it is checked before use
+        // rather than trusted. A rate outside what audio hardware can actually
+        // run falls back to the rate the modules were built with.
+        let reported_sr = buffer_config.sample_rate;
+        let sr = if (1_000.0..=768_000.0).contains(&reported_sr) {
+            reported_sr
+        } else {
+            nih_log!(
+                "Host reported an implausible sample rate ({}); using 44100 Hz",
+                reported_sr
+            );
+            44_100.0
+        };
         self.sample_rate = sr;
 
         // Report plugin delay for host PDC: the limiter's lookahead buffer
@@ -312,14 +393,16 @@ impl Plugin for HardwaveLoudLab {
     ) -> ProcessStatus {
         // Read ALL param values into locals so we can drop the borrow on self.params.
         let p = &self.params;
-        let intensity = p.intensity.value();
-        let input_gain_db = p.input_gain.value();
-        let sub_gain_db = p.sub_gain.value();
-        let output_gain_db = p.output_gain.value();
+        // Every float read goes through `in_range`: see its docstring for why a
+        // parameter's stored value is not trusted to be inside its own range.
+        let intensity = in_range(&p.intensity);
+        let input_gain_db = in_range(&p.input_gain);
+        let sub_gain_db = in_range(&p.sub_gain);
+        let output_gain_db = in_range(&p.output_gain);
         // User's ceiling — honored in Auto mode too (Kosta: the producer chooses
         // their dBTP), not overridden by the genre profile.
-        let limiter_ceiling_db = p.limiter_ceiling.value();
-        let mix = p.mix.value();
+        let limiter_ceiling_db = in_range(&p.limiter_ceiling);
+        let mix = in_range(&p.mix);
         let auto_mode = p.auto_mode.value();
         let master_enabled = p.master_enabled.value();
         let eq_enabled = p.eq_enabled.value();
@@ -327,8 +410,8 @@ impl Plugin for HardwaveLoudLab {
         let stereo_enabled = p.stereo_enabled.value();
         let limiter_enabled = p.limiter_enabled.value();
         let sat_enabled = p.sat_enabled.value();
-        let _sat_drive_db = p.sat_drive.value();
-        let _sat_mix = p.sat_mix.value();
+        let _sat_drive_db = in_range(&p.sat_drive);
+        let _sat_mix = in_range(&p.sat_mix);
         let genre = p.genre.value();
 
         // Track the maximum playback position ever observed so the webview
@@ -590,30 +673,32 @@ impl HardwaveLoudLab {
     fn apply_manual_params(&mut self) {
         let p = &self.params;
 
-        // EQ bands.
+        // EQ bands. Every float read goes through `in_range` — a Q of 0 or a
+        // non-finite frequency turns the biquad's coefficients into NaN, and a
+        // NaN in a filter's state never clears again.
         let eq_bands = [
             EqBandParams {
-                freq: p.eq_low_freq.value(),
-                gain_db: p.eq_low_gain.value(),
-                q: p.eq_low_q.value(),
+                freq: in_range(&p.eq_low_freq),
+                gain_db: in_range(&p.eq_low_gain),
+                q: in_range(&p.eq_low_q),
                 enabled: true,
             },
             EqBandParams {
-                freq: p.eq_low_mid_freq.value(),
-                gain_db: p.eq_low_mid_gain.value(),
-                q: p.eq_low_mid_q.value(),
+                freq: in_range(&p.eq_low_mid_freq),
+                gain_db: in_range(&p.eq_low_mid_gain),
+                q: in_range(&p.eq_low_mid_q),
                 enabled: true,
             },
             EqBandParams {
-                freq: p.eq_high_mid_freq.value(),
-                gain_db: p.eq_high_mid_gain.value(),
-                q: p.eq_high_mid_q.value(),
+                freq: in_range(&p.eq_high_mid_freq),
+                gain_db: in_range(&p.eq_high_mid_gain),
+                q: in_range(&p.eq_high_mid_q),
                 enabled: true,
             },
             EqBandParams {
-                freq: p.eq_high_freq.value(),
-                gain_db: p.eq_high_gain.value(),
-                q: p.eq_high_q.value(),
+                freq: in_range(&p.eq_high_freq),
+                gain_db: in_range(&p.eq_high_gain),
+                q: in_range(&p.eq_high_q),
                 enabled: true,
             },
         ];
@@ -625,39 +710,40 @@ impl HardwaveLoudLab {
 
         // Compressor crossover.
         self.compressor.set_crossover_freqs(
-            p.comp_xover_low.value(),
-            p.comp_xover_mid.value(),
-            p.comp_xover_high.value(),
+            in_range(&p.comp_xover_low),
+            in_range(&p.comp_xover_mid),
+            in_range(&p.comp_xover_high),
         );
 
-        // Compressor bands.
+        // Compressor bands. Attack and release sit in a denominator and the
+        // ratio divides the overshoot, so these go through `in_range` too.
         let comp_params = [
             BandCompParams {
-                threshold_db: p.comp_sub_thresh.value(),
-                ratio: p.comp_sub_ratio.value(),
-                attack_ms: p.comp_sub_attack.value(),
-                release_ms: p.comp_sub_release.value(),
+                threshold_db: in_range(&p.comp_sub_thresh),
+                ratio: in_range(&p.comp_sub_ratio),
+                attack_ms: in_range(&p.comp_sub_attack),
+                release_ms: in_range(&p.comp_sub_release),
                 makeup_db: 0.0,
             },
             BandCompParams {
-                threshold_db: p.comp_lm_thresh.value(),
-                ratio: p.comp_lm_ratio.value(),
-                attack_ms: p.comp_lm_attack.value(),
-                release_ms: p.comp_lm_release.value(),
+                threshold_db: in_range(&p.comp_lm_thresh),
+                ratio: in_range(&p.comp_lm_ratio),
+                attack_ms: in_range(&p.comp_lm_attack),
+                release_ms: in_range(&p.comp_lm_release),
                 makeup_db: 0.0,
             },
             BandCompParams {
-                threshold_db: p.comp_hm_thresh.value(),
-                ratio: p.comp_hm_ratio.value(),
-                attack_ms: p.comp_hm_attack.value(),
-                release_ms: p.comp_hm_release.value(),
+                threshold_db: in_range(&p.comp_hm_thresh),
+                ratio: in_range(&p.comp_hm_ratio),
+                attack_ms: in_range(&p.comp_hm_attack),
+                release_ms: in_range(&p.comp_hm_release),
                 makeup_db: 0.0,
             },
             BandCompParams {
-                threshold_db: p.comp_hi_thresh.value(),
-                ratio: p.comp_hi_ratio.value(),
-                attack_ms: p.comp_hi_attack.value(),
-                release_ms: p.comp_hi_release.value(),
+                threshold_db: in_range(&p.comp_hi_thresh),
+                ratio: in_range(&p.comp_hi_ratio),
+                attack_ms: in_range(&p.comp_hi_attack),
+                release_ms: in_range(&p.comp_hi_release),
                 makeup_db: 0.0,
             },
         ];
@@ -667,17 +753,17 @@ impl HardwaveLoudLab {
         }
 
         // Stereo.
-        self.stereo.width = p.stereo_width.value();
+        self.stereo.width = in_range(&p.stereo_width);
         self.stereo.bass_mono = p.stereo_mono_bass.value();
-        self.stereo.mono_bass_freq = p.stereo_mono_bass_freq.value();
+        self.stereo.mono_bass_freq = in_range(&p.stereo_mono_bass_freq);
         self.stereo.update_filters();
 
         // Saturation. set_params is allocation-free; Saturation copies the
         // struct in. Reading these in the slow-path keeps the audio loop free
         // of per-sample param.value() calls.
         self.saturation.set_params(dsp::SaturationParams {
-            drive_db: p.sat_drive.value(),
-            mix: p.sat_mix.value(),
+            drive_db: in_range(&p.sat_drive),
+            mix: in_range(&p.sat_mix),
             enabled: p.sat_enabled.value(),
         });
 
@@ -691,10 +777,10 @@ impl HardwaveLoudLab {
         // Advanced-mode use case we're enabling.
         {
             let comp_makeups = [
-                p.comp_sub_makeup.value(),
-                p.comp_lm_makeup.value(),
-                p.comp_hm_makeup.value(),
-                p.comp_hi_makeup.value(),
+                in_range(&p.comp_sub_makeup),
+                in_range(&p.comp_lm_makeup),
+                in_range(&p.comp_hm_makeup),
+                in_range(&p.comp_hi_makeup),
             ];
             for (i, mk) in comp_makeups.iter().enumerate() {
                 self.compressor.set_band_makeup(i, *mk);
@@ -702,7 +788,7 @@ impl HardwaveLoudLab {
         }
 
         // Limiter.
-        self.limiter.set_ceiling(p.limiter_ceiling.value());
+        self.limiter.set_ceiling(in_range(&p.limiter_ceiling));
     }
 }
 
@@ -734,4 +820,195 @@ nih_export_vst3!(HardwaveLoudLab);
 #[inline(always)]
 fn db_to_linear(db: f32) -> f32 {
     10.0_f32.powf(db / 20.0)
+}
+
+/// Read a float parameter, refusing anything outside the range the parameter
+/// itself declares.
+///
+/// `FloatParam::set_plain_value` stores the number it is handed verbatim.
+/// nih-plug clamps the *normalized* view to 0..1, but the plain value the DSP
+/// reads back is whatever was written, so a restored project, a preset or a
+/// host automation lane can put an infinity or a NaN into a parameter that
+/// advertises a -6..0 dB range. Everything downstream divides by these numbers,
+/// and `f32::clamp` panics outright when a bound is NaN — inside `process()`
+/// that panic crosses the FFI boundary and takes the host down with it.
+///
+/// Going out through `preview_normalized` and back through `preview_plain`
+/// returns the parameter's own nearest legal value, so the ranges stay stated
+/// in exactly one place: the parameter definitions in `params.rs`.
+#[inline]
+fn in_range(param: &FloatParam) -> f32 {
+    let value = param.value();
+    if value.is_finite() {
+        param.preview_plain(param.preview_normalized(value))
+    } else {
+        param.preview_plain(param.default_normalized_value())
+    }
+}
+
+#[cfg(test)]
+mod state_tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    /// Every float parameter, as `(id, ParamPtr)`. The returned `Arc` has to be
+    /// kept alive by the caller: the pointers borrow from it.
+    fn float_params() -> (Arc<HardwaveMasterParams>, Vec<(String, ParamPtr)>) {
+        let params = Arc::new(HardwaveMasterParams::default());
+        let floats = params
+            .param_map()
+            .into_iter()
+            .filter(|(_, ptr, _)| matches!(ptr, ParamPtr::FloatParam(_)))
+            .map(|(id, ptr, _)| (id, ptr))
+            .collect();
+        (params, floats)
+    }
+
+    fn state_with(params: BTreeMap<String, ParamValue>) -> PluginState {
+        PluginState {
+            version: String::from("0.0.0"),
+            params,
+            fields: BTreeMap::new(),
+        }
+    }
+
+    /// A state holding values far outside what the parameters allow must come
+    /// back inside their ranges. Without `filter_state` nih-plug writes these
+    /// numbers into the parameters verbatim, and the host, the editor and the
+    /// DSP all read them back.
+    #[test]
+    fn filter_state_pulls_a_damaged_state_into_range() {
+        let (params, floats) = float_params();
+
+        let damaged = floats
+            .iter()
+            .map(|(id, _)| (id.clone(), ParamValue::F32(1.0e30)))
+            .collect();
+        let mut state = state_with(damaged);
+        HardwaveLoudLab::filter_state(&mut state);
+
+        for (id, ptr) in &floats {
+            let value = match state.params.get(id) {
+                Some(ParamValue::F32(v)) => *v,
+                other => panic!("{id} came back as {other:?}"),
+            };
+            assert!(value.is_finite(), "{id} is still not a real number");
+            // A value inside the declared range survives its own normalize /
+            // unnormalize round trip unchanged; one outside it does not.
+            // SAFETY: `params` owns the parameters these pointers refer to and
+            // is still alive here.
+            let round_tripped = unsafe { ptr.preview_plain(ptr.preview_normalized(value)) };
+            assert!(
+                (value - round_tripped).abs() <= value.abs() * 1e-4 + 1e-6,
+                "{id} is still outside its range: {value} vs {round_tripped}"
+            );
+        }
+
+        // Spot checks against the ranges declared in params.rs.
+        let ceiling = match state.params.get("limiter_ceiling") {
+            Some(ParamValue::F32(v)) => *v,
+            other => panic!("limiter_ceiling came back as {other:?}"),
+        };
+        assert!(
+            (-6.0..=0.0).contains(&ceiling),
+            "limiter_ceiling outside -6..0 dB: {ceiling}"
+        );
+        let intensity = match state.params.get("intensity") {
+            Some(ParamValue::F32(v)) => *v,
+            other => panic!("intensity came back as {other:?}"),
+        };
+        assert!(
+            (0.0..=1.0).contains(&intensity),
+            "intensity outside 0..1: {intensity}"
+        );
+
+        drop(params);
+    }
+
+    /// A ceiling that is not a real number is what makes `process()` panic, so
+    /// it must not survive the load at all — the parameter keeps its default.
+    #[test]
+    fn filter_state_drops_values_that_are_not_real_numbers() {
+        let (params, _floats) = float_params();
+
+        let mut state = state_with(BTreeMap::from([
+            (String::from("limiter_ceiling"), ParamValue::F32(f32::NAN)),
+            (String::from("eq_low_q"), ParamValue::F32(f32::INFINITY)),
+            (String::from("mix"), ParamValue::F32(0.5)),
+        ]));
+        HardwaveLoudLab::filter_state(&mut state);
+
+        assert!(
+            !state.params.contains_key("limiter_ceiling"),
+            "a NaN ceiling was kept"
+        );
+        assert!(
+            !state.params.contains_key("eq_low_q"),
+            "an infinite Q was kept"
+        );
+        assert!(
+            matches!(state.params.get("mix"), Some(ParamValue::F32(v)) if *v == 0.5),
+            "a healthy value was disturbed"
+        );
+
+        drop(params);
+    }
+
+    /// The guard must not change what an existing project sounds like: a state
+    /// a previous version wrote holds in-range values, and every one of them
+    /// has to come back untouched.
+    #[test]
+    fn filter_state_leaves_a_healthy_state_alone() {
+        let (params, floats) = float_params();
+
+        let healthy: BTreeMap<String, ParamValue> = floats
+            .iter()
+            .map(|(id, ptr)| {
+                // Three quarters up the parameter's own range — a value any
+                // saved project could legitimately hold.
+                // SAFETY: `params` owns the parameters these pointers refer to
+                // and is still alive here.
+                let plain = unsafe { ptr.preview_plain(0.75) };
+                (id.clone(), ParamValue::F32(plain))
+            })
+            .collect();
+        let mut state = state_with(healthy.clone());
+        HardwaveLoudLab::filter_state(&mut state);
+
+        for (id, before) in &healthy {
+            let (ParamValue::F32(before), Some(ParamValue::F32(after))) =
+                (before, state.params.get(id))
+            else {
+                panic!("{id} changed shape");
+            };
+            assert!(
+                (before - after).abs() <= before.abs() * 1e-5 + 1e-6,
+                "{id} moved on load: {before} -> {after}"
+            );
+        }
+
+        drop(params);
+    }
+
+    /// The genre enum is stored by variant index. An index past the end of the
+    /// enum must be pulled back onto a real variant rather than being written
+    /// into the parameter as-is.
+    #[test]
+    fn filter_state_corrects_an_out_of_range_enum_index() {
+        let mut state = state_with(BTreeMap::from([(
+            String::from("genre"),
+            ParamValue::I32(9_999),
+        )]));
+        HardwaveLoudLab::filter_state(&mut state);
+
+        let genre = match state.params.get("genre") {
+            Some(ParamValue::I32(v)) => *v,
+            other => panic!("genre came back as {other:?}"),
+        };
+        let variants = <params::Genre as Enum>::variants().len() as i32;
+        assert!(
+            (0..variants).contains(&genre),
+            "genre index {genre} is not one of the {variants} variants"
+        );
+    }
 }

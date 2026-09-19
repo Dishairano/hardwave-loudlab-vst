@@ -62,7 +62,11 @@ impl DcBlocker {
     fn new(sample_rate: f32) -> Self {
         // Cut-off ~5 Hz: coeff = 1 - (2π * 5 / sr). At 44.1kHz that's ~0.9993.
         let coeff = 1.0 - (2.0 * std::f32::consts::PI * 5.0 / sample_rate);
-        Self { x1: 0.0, y1: 0.0, coeff }
+        Self {
+            x1: 0.0,
+            y1: 0.0,
+            coeff,
+        }
     }
 
     fn process(&mut self, x: f32) -> f32 {

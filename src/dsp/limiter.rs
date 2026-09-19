@@ -9,6 +9,31 @@
 
 pub const LOOKAHEAD_MS: f32 = 5.0;
 
+/// Ceiling values the limiter itself will accept, in dB. The `limiter_ceiling`
+/// parameter declares -6..0 dB; this is the wider bound the DSP trusts, so a
+/// value that reaches the setter from somewhere other than that parameter still
+/// lands on a usable ceiling instead of a degenerate one.
+const MIN_CEILING_DB: f32 = -60.0;
+const MAX_CEILING_DB: f32 = 0.0;
+
+/// Ceiling used when the value handed to `set_ceiling` is not a real number.
+/// Matches the `limiter_ceiling` parameter's own default.
+const FALLBACK_CEILING_DB: f32 = -1.0;
+
+/// Pull a ceiling into the range the limiter can work with.
+///
+/// A NaN ceiling used to reach `hard_clip` as a clamp bound, and `f32::clamp`
+/// panics when a bound is NaN. That panic happens inside `Plugin::process`, so
+/// it crosses the FFI boundary and takes the host process down with it.
+#[inline]
+fn sanitize_ceiling_db(db: f32) -> f32 {
+    if db.is_finite() {
+        db.clamp(MIN_CEILING_DB, MAX_CEILING_DB)
+    } else {
+        FALLBACK_CEILING_DB
+    }
+}
+
 pub struct BrickwallLimiter {
     sample_rate: f32,
 
@@ -79,11 +104,12 @@ impl BrickwallLimiter {
 
     /// Call after changing `ceiling_db`.
     pub fn set_ceiling(&mut self, db: f32) {
-        self.ceiling_db = db;
-        self.ceiling_lin = db_to_lin(db);
+        self.ceiling_db = sanitize_ceiling_db(db);
+        self.ceiling_lin = db_to_lin(self.ceiling_db);
     }
 
     fn recalc(&mut self) {
+        self.ceiling_db = sanitize_ceiling_db(self.ceiling_db);
         self.ceiling_lin = db_to_lin(self.ceiling_db);
         // Attack: very fast, roughly 0.1 ms so we catch peaks within the
         // lookahead window.
@@ -153,12 +179,68 @@ fn soft_clip(x: f32) -> f32 {
     x.tanh()
 }
 
+/// Hard clip to `±ceil`.
+///
+/// Written with `max`/`min` rather than `clamp` on purpose: `f32::clamp` panics
+/// when either bound is NaN, and nothing in the audio path may panic.
+/// `set_ceiling` already refuses a non-finite ceiling, so this is the second
+/// line — a future caller cannot reintroduce the host crash from here.
+///
+/// A sample that arrives non-finite is flushed to silence rather than passed
+/// on: this is the last stage before the output bus, and a NaN leaving the
+/// plug-in poisons every meter and every plug-in after it on the master.
 #[inline(always)]
 fn hard_clip(x: f32, ceil: f32) -> f32 {
-    x.clamp(-ceil, ceil)
+    if !x.is_finite() {
+        return 0.0;
+    }
+    x.max(-ceil).min(ceil)
 }
 
 #[inline(always)]
 fn db_to_lin(db: f32) -> f32 {
     10.0_f32.powf(db / 20.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A ceiling that is not a real number must not reach the audio path. A
+    /// saved project, a preset or a host automation lane can hand the ceiling
+    /// parameter a NaN, and `f32::clamp` panics when either bound is NaN — a
+    /// panic inside `process()` crosses the FFI boundary and takes the host
+    /// down with it.
+    #[test]
+    fn nan_ceiling_does_not_panic() {
+        let mut limiter = BrickwallLimiter::new(48_000.0);
+        limiter.set_ceiling(f32::NAN);
+        for n in 0..512 {
+            let x = 0.5 * (n as f32 * 0.01).sin();
+            let (l, r) = limiter.process(x, x);
+            assert!(l.is_finite(), "left output went non-finite at {n}: {l}");
+            assert!(r.is_finite(), "right output went non-finite at {n}: {r}");
+        }
+    }
+
+    /// The same for the infinities and for a value so far outside the
+    /// parameter's own -6..0 dB range that `10^(db/20)` overflows or
+    /// underflows.
+    #[test]
+    fn extreme_ceilings_stay_finite_and_bounded() {
+        for db in [f32::INFINITY, f32::NEG_INFINITY, 1.0e38, -1.0e38, 0.0] {
+            let mut limiter = BrickwallLimiter::new(48_000.0);
+            limiter.set_ceiling(db);
+            for n in 0..512 {
+                let x = 4.0 * (n as f32 * 0.31).sin();
+                let (l, r) = limiter.process(x, x);
+                assert!(l.is_finite(), "ceiling {db}: left non-finite at {n}: {l}");
+                assert!(r.is_finite(), "ceiling {db}: right non-finite at {n}: {r}");
+                assert!(
+                    l.abs() <= 1.0 && r.abs() <= 1.0,
+                    "ceiling {db}: output above full scale at {n}: {l}, {r}"
+                );
+            }
+        }
+    }
 }

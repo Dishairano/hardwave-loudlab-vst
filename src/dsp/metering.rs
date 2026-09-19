@@ -122,13 +122,17 @@ impl Biquad {
 // ---------------------------------------------------------------------------
 
 /// Number of samples in the 400 ms momentary window.
+///
+/// Never zero: every ring below is indexed directly in `process()`, so an empty
+/// ring is an out-of-bounds panic on the audio thread. The limiter's delay line
+/// takes the same precaution.
 fn momentary_window_samples(sr: f32) -> usize {
-    (sr * 0.4) as usize
+    ((sr * 0.4) as usize).max(1)
 }
 
 /// Number of samples in the 3 s short-term window.
 fn short_term_window_samples(sr: f32) -> usize {
-    (sr * 3.0) as usize
+    ((sr * 3.0) as usize).max(1)
 }
 
 /// BS.1770-4 integrated LUFS uses 400 ms blocks with 75% overlap, i.e. a new
@@ -136,7 +140,7 @@ fn short_term_window_samples(sr: f32) -> usize {
 /// directly via a small running ring of `step_samples` instead of re-scanning
 /// the full 400 ms ring buffer, which would be costly per sample.
 fn integrated_step_samples(sr: f32) -> usize {
-    (sr * 0.1) as usize
+    ((sr * 0.1) as usize).max(1)
 }
 
 /// Cap on retained block-energy samples for integrated LUFS — at 100 ms per
@@ -503,6 +507,12 @@ fn integrate_gated(blocks: &[f32]) -> f32 {
 /// in the right rail.
 const STEREO_WINDOW_SECS: f32 = 3.0;
 
+/// Number of samples in the stereo window. Never zero, for the same reason as
+/// the LUFS windows above: `process()` indexes these rings directly.
+fn stereo_window_samples(sr: f32) -> usize {
+    ((sr * STEREO_WINDOW_SECS) as usize).max(1)
+}
+
 pub struct StereoMeter {
     sample_rate: f32,
     window_len: usize,
@@ -530,7 +540,7 @@ pub struct StereoMeter {
 
 impl StereoMeter {
     pub fn new(sample_rate: f32) -> Self {
-        let window_len = (sample_rate * STEREO_WINDOW_SECS) as usize;
+        let window_len = stereo_window_samples(sample_rate);
         Self {
             sample_rate,
             window_len,
@@ -554,7 +564,7 @@ impl StereoMeter {
 
     pub fn set_sample_rate(&mut self, sr: f32) {
         self.sample_rate = sr;
-        let window_len = (sr * STEREO_WINDOW_SECS) as usize;
+        let window_len = stereo_window_samples(sr);
         self.l_ring.resize(window_len, 0.0);
         self.r_ring.resize(window_len, 0.0);
         self.m2_ring.resize(window_len, 0.0);

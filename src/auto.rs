@@ -61,9 +61,8 @@ impl AutoEngine {
         let bin_hz = sample_rate / fft_size as f32;
 
         // Measure average energy around each anchor frequency.
-        let measured = ANCHOR_FREQS.map(|freq| {
-            avg_energy_around(spectrum_db, freq, bin_hz, bin_count)
-        });
+        let measured =
+            ANCHOR_FREQS.map(|freq| avg_energy_around(spectrum_db, freq, bin_hz, bin_count));
 
         // Compute the target energy at each anchor from the profile's EQ gains.
         // The profile's gain_db represents the desired deviation from flat, so

@@ -175,7 +175,10 @@ mod ui_message_tests {
 
     #[test]
     fn refuses_what_it_does_not_know() {
-        assert!(serde_json::from_str::<UiMessage>(r#"{"type":"set_genre","genre":"hardstyle"}"#).is_err());
+        assert!(
+            serde_json::from_str::<UiMessage>(r#"{"type":"set_genre","genre":"hardstyle"}"#)
+                .is_err()
+        );
         assert!(serde_json::from_str::<UiMessage>(r#"{"type":"set_param","id":"x"}"#).is_err());
     }
 }

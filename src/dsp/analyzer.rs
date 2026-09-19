@@ -60,9 +60,7 @@ impl SpectrumAnalyzer {
 
     fn build_hanning_window() -> Vec<f32> {
         (0..FFT_SIZE)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * PI * i as f32 / (FFT_SIZE as f32 - 1.0)).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * PI * i as f32 / (FFT_SIZE as f32 - 1.0)).cos()))
             .collect()
     }
 
@@ -76,7 +74,7 @@ impl SpectrumAnalyzer {
             self.write_pos = 0;
             self.compute_fft();
             self.frame_ready = true;
-        self.any_frame_computed = true;
+            self.any_frame_computed = true;
         }
     }
 

@@ -184,7 +184,7 @@ impl Default for BandCompParams {
 #[derive(Clone, Copy)]
 struct BandCompressor {
     params: BandCompParams,
-    env: f32,         // envelope level (linear)
+    env: f32, // envelope level (linear)
     attack_coeff: f32,
     release_coeff: f32,
     sample_rate: f32,

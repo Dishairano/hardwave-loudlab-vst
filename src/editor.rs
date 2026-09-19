@@ -9,7 +9,7 @@
 
 use crossbeam_channel::Receiver;
 use nih_plug::editor::Editor;
-use nih_plug::prelude::{GuiContext, ParentWindowHandle, Param};
+use nih_plug::prelude::{GuiContext, Param, ParentWindowHandle};
 use parking_lot::{Condvar, Mutex};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -41,7 +41,10 @@ struct ShutdownSignal {
 
 impl ShutdownSignal {
     fn new() -> Self {
-        Self { flag: Mutex::new(false), cv: Condvar::new() }
+        Self {
+            flag: Mutex::new(false),
+            cv: Condvar::new(),
+        }
     }
 
     fn signal(&self) {
@@ -58,7 +61,9 @@ impl ShutdownSignal {
     /// Returns `true` if shutdown was signalled.
     fn wait(&self, timeout: Duration) -> bool {
         let mut g = self.flag.lock();
-        if *g { return true; }
+        if *g {
+            return true;
+        }
         let _ = self.cv.wait_for(&mut g, timeout);
         *g
     }
@@ -79,7 +84,9 @@ unsafe impl Send for RwhWrapper {}
 unsafe impl Sync for RwhWrapper {}
 
 impl raw_window_handle::HasWindowHandle for RwhWrapper {
-    fn window_handle(&self) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+    fn window_handle(
+        &self,
+    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
         use raw_window_handle::RawWindowHandle;
 
         #[cfg(target_os = "linux")]
@@ -112,7 +119,9 @@ impl raw_window_handle::HasWindowHandle for RwhWrapper {
 }
 
 impl raw_window_handle::HasDisplayHandle for RwhWrapper {
-    fn display_handle(&self) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
+    fn display_handle(
+        &self,
+    ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
         use raw_window_handle::RawDisplayHandle;
 
         #[cfg(target_os = "linux")]
@@ -183,7 +192,10 @@ fn build_param_map(params: &HardwaveMasterParams) -> HashMap<String, nih_plug::p
     map.insert("stereo_enabled".into(), params.stereo_enabled.as_ptr());
     map.insert("stereo_width".into(), params.stereo_width.as_ptr());
     map.insert("stereo_mono_bass".into(), params.stereo_mono_bass.as_ptr());
-    map.insert("stereo_mono_bass_freq".into(), params.stereo_mono_bass_freq.as_ptr());
+    map.insert(
+        "stereo_mono_bass_freq".into(),
+        params.stereo_mono_bass_freq.as_ptr(),
+    );
 
     // Limiter
     map.insert("limiter_enabled".into(), params.limiter_enabled.as_ptr());
@@ -417,7 +429,10 @@ impl MasterEditor {
 
     fn scaled_size(&self) -> (u32, u32) {
         let f = *self.scale_factor.lock();
-        ((EDITOR_WIDTH as f32 * f) as u32, (EDITOR_HEIGHT as f32 * f) as u32)
+        (
+            (EDITOR_WIDTH as f32 * f) as u32,
+            (EDITOR_HEIGHT as f32 * f) as u32,
+        )
     }
 }
 
@@ -443,16 +458,32 @@ impl Editor for MasterEditor {
         #[cfg(target_os = "windows")]
         {
             spawn_windows(
-                raw_handle, url, width, height, packet_rx, context, param_map,
-                Arc::clone(&self.reset_capture_flag), init_js,
+                raw_handle,
+                url,
+                width,
+                height,
+                packet_rx,
+                context,
+                param_map,
+                Arc::clone(&self.reset_capture_flag),
+                init_js,
                 self.instance_id.clone(),
             )
         }
 
         #[cfg(not(target_os = "windows"))]
         {
-            spawn_unix(raw_handle, url, width, height, packet_rx, context, param_map,
-                Arc::clone(&self.reset_capture_flag), init_js)
+            spawn_unix(
+                raw_handle,
+                url,
+                width,
+                height,
+                packet_rx,
+                context,
+                param_map,
+                Arc::clone(&self.reset_capture_flag),
+                init_js,
+            )
         }
     }
 
@@ -572,10 +603,7 @@ fn spawn_windows(
 
                 if req.starts_with("POST /ipc") {
                     // Locate the body — everything past the first blank line.
-                    let body = req
-                        .find("\r\n\r\n")
-                        .map(|i| &req[i + 4..])
-                        .unwrap_or("");
+                    let body = req.find("\r\n\r\n").map(|i| &req[i + 4..]).unwrap_or("");
                     // Body may include trailing NULs from the uninitialised
                     // buffer tail; trim them so the JSON parse doesn't reject.
                     let trimmed = body.trim_end_matches('\0').trim();
@@ -715,7 +743,10 @@ fn spawn_unix(
             })
             .with_bounds(wry::Rect {
                 position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
-                size: wry::dpi::Size::Logical(wry::dpi::LogicalSize::new(width as f64, height as f64)),
+                size: wry::dpi::Size::Logical(wry::dpi::LogicalSize::new(
+                    width as f64,
+                    height as f64,
+                )),
             })
             .with_devtools(false)
             .build_as_child(&wrapper)

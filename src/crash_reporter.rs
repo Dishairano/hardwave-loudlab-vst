@@ -170,20 +170,36 @@ fn compute_stack_hash(plugin_slug: &str, top_frame: &str) -> String {
 
 fn os_label() -> &'static str {
     if cfg!(target_os = "windows") {
-        if cfg!(target_arch = "aarch64") { "win-arm64" } else { "win-x64" }
+        if cfg!(target_arch = "aarch64") {
+            "win-arm64"
+        } else {
+            "win-x64"
+        }
     } else if cfg!(target_os = "macos") {
-        if cfg!(target_arch = "aarch64") { "mac-arm64" } else { "mac-intel" }
+        if cfg!(target_arch = "aarch64") {
+            "mac-arm64"
+        } else {
+            "mac-intel"
+        }
     } else if cfg!(target_os = "linux") {
-        if cfg!(target_arch = "aarch64") { "linux-arm64" } else { "linux-x64" }
+        if cfg!(target_arch = "aarch64") {
+            "linux-arm64"
+        } else {
+            "linux-x64"
+        }
     } else {
         "unknown"
     }
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max { return s.to_string(); }
+    if s.len() <= max {
+        return s.to_string();
+    }
     let mut end = max;
-    while !s.is_char_boundary(end) && end > 0 { end -= 1; }
+    while !s.is_char_boundary(end) && end > 0 {
+        end -= 1;
+    }
     s[..end].to_string()
 }
 
@@ -219,11 +235,17 @@ fn fill_random(buf: &mut [u8]) -> std::io::Result<()> {
     if status == STATUS_SUCCESS {
         Ok(())
     } else {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "BCryptGenRandom failed"))
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "BCryptGenRandom failed",
+        ))
     }
 }
 
 #[cfg(not(any(unix, windows)))]
 fn fill_random(_buf: &mut [u8]) -> std::io::Result<()> {
-    Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "no rng available on this platform"))
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "no rng available on this platform",
+    ))
 }
